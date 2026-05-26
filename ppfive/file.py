@@ -252,7 +252,11 @@ def _xy_axis_codes(lbcode: int) -> tuple[int | None, int | None]:
     return None, None
 
 
-def _derive_cell_methods(attrs: Mapping[str, Any], dim_names: tuple[str, ...]) -> str | None:
+def _derive_cell_methods(
+    attrs: Mapping[str, Any],
+    dim_names: tuple[str, ...],
+    axis_map: dict[str, str],
+) -> str | None:
     """Derive CF cell_methods from UM LBPROC/LBTIM metadata (umread parity)."""
     methods: list[str] = []
 
@@ -285,15 +289,20 @@ def _derive_cell_methods(attrs: Mapping[str, Any], dim_names: tuple[str, ...]) -
                 methods.append(str(cf_info["over"]))
 
         if lbproc == 64:
-            methods.append("x: mean")
+            x_name = axis_map.get("x")
+            if x_name:
+                methods.append(f"{x_name}: mean")
 
     # Vertical methods.
     if lbproc == 2048:
-        methods.append("z: mean")
+        z_name = axis_map.get("z")
+        if z_name:
+            methods.append(f"{z_name}: mean")
 
     # Time methods.
-    has_time_axis = "time" in dim_names
-    axis = "time"
+    t_name = axis_map.get("t")
+    has_time_axis = t_name in dim_names
+    axis = t_name or "time"
     if lbtim_ib in (0, 1):
         if has_time_axis:
             methods.append(f"{axis}: point")
@@ -477,9 +486,12 @@ class File(Mapping[str, Variable]):
             "air_pressure": "down",
         }
 
-        def _semantic_dim_names(shape: tuple[int, ...], attrs: Mapping[str, Any]) -> tuple[str, ...]:
+        def _semantic_dim_names(
+            shape: tuple[int, ...], attrs: Mapping[str, Any]
+        ) -> tuple[tuple[str, ...], dict[str, str]]:
             if len(shape) != 4:
-                return tuple(f"dim_{axis}_{size}" for axis, size in enumerate(shape))
+                dim_names = tuple(f"dim_{axis}_{size}" for axis, size in enumerate(shape))
+                return dim_names, {}
 
             lbcode = int(attrs.get("lbcode", 0) or 0)
             lbvc = int(attrs.get("lbvc", 0) or 0)
@@ -512,9 +524,12 @@ class File(Mapping[str, Variable]):
             # Mirrors build_variable_index ordering for pseudo-level fields.
             z_first = has_pseudo and shape[0] > 1 and shape[1] > 1
             if z_first:
-                return (z_name, t_name, y_name, x_name)
+                dim_names = (z_name, t_name, y_name, x_name)
+            else:
+                dim_names = (t_name, z_name, y_name, x_name)
 
-            return (t_name, z_name, y_name, x_name)
+            axis_map = {"t": t_name, "z": z_name, "y": y_name, "x": x_name}
+            return dim_names, axis_map
 
         def _dim_units(name: str) -> str | None:
             if name == "air_pressure":
@@ -543,6 +558,7 @@ class File(Mapping[str, Variable]):
             shape: tuple[int, ...],
             dim_names: tuple[str, ...],
             attrs: Mapping[str, Any],
+            axis_map: dict[str, str],
         ) -> np.ndarray | None:
             if dim_name == "time":
                 values = attrs.get("time_values")
@@ -552,7 +568,8 @@ class File(Mapping[str, Variable]):
             if len(shape) < 2:
                 return None
 
-            if dim_name == "grid_latitude" and len(dim_names) >= 2 and dim_names[-2] == dim_name:
+            y_name = axis_map.get("y")
+            if dim_name == y_name and len(dim_names) >= 2 and dim_names[-2] == dim_name:
                 return _regular_axis_values(
                     origin=float(attrs.get("bzy", 0.0)),
                     delta=float(attrs.get("bdy", 1.0)),
@@ -560,7 +577,8 @@ class File(Mapping[str, Variable]):
                     is_longitude=False,
                 )
 
-            if dim_name == "grid_longitude" and len(dim_names) >= 1 and dim_names[-1] == dim_name:
+            x_name = axis_map.get("x")
+            if dim_name == x_name and len(dim_names) >= 1 and dim_names[-1] == dim_name:
                 return _regular_axis_values(
                     origin=float(attrs.get("bzx", 0.0)),
                     delta=float(attrs.get("bdx", 1.0)),
@@ -575,11 +593,20 @@ class File(Mapping[str, Variable]):
             shape = tuple(meta.get("shape", ()))
             attrs = _PyfiveAttrs(dict(meta.get("attrs", {})))
 
-            raw_dim_names = _semantic_dim_names(shape, attrs)
+            raw_dim_names, axis_map = _semantic_dim_names(shape, attrs)
             dim_names = tuple(
                 _resolve_dim_name(dim_name, dim_size)
                 for dim_name, dim_size in zip(raw_dim_names, shape)
             )
+            # Update axis_map with resolved names.
+            for i, raw_name in enumerate(raw_dim_names):
+                resolved_name = dim_names[i]
+                if resolved_name != raw_name:
+                    for axis, name in axis_map.items():
+                        if name == raw_name:
+                            axis_map[axis] = resolved_name
+                            break
+
             for dim_name, dim_size in zip(dim_names, shape):
                 if dim_name not in self._pyfive_dimension_scales:
                     self._pyfive_dimension_scales[dim_name] = _DimensionScale(
@@ -591,7 +618,7 @@ class File(Mapping[str, Variable]):
                         axis=_dim_axis_map.get(dim_name),
                         positive=_dim_positive_map.get(dim_name),
                         calendar=(attrs.get("time_calendar") if dim_name == "time" else None),
-                        data=_dim_data(dim_name, dim_size, shape, dim_names, attrs),
+                        data=_dim_data(dim_name, dim_size, shape, dim_names, attrs, axis_map),
                     )
 
                     if dim_name == "time":
@@ -608,7 +635,7 @@ class File(Mapping[str, Variable]):
                     tuple((dim_name,) for dim_name in dim_names),
                 )
 
-            cell_methods = _derive_cell_methods(attrs, dim_names)
+            cell_methods = _derive_cell_methods(attrs, dim_names, axis_map)
             if cell_methods:
                 attrs.setdefault("cell_methods", cell_methods)
 
