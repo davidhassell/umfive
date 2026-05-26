@@ -15,9 +15,13 @@ from .constants import (
     INDEX_BDY,
     INDEX_BGOR,
     INDEX_BHLEV,
+    INDEX_BHRLEV,
     INDEX_BLEV,
     INDEX_BPLAT,
     INDEX_BPLON,
+    INDEX_BRLEV,
+    INDEX_BRSVD1,
+    INDEX_BRSVD2,
     INDEX_BZX,
     INDEX_BZY,
     INDEX_LBCODE,
@@ -296,12 +300,22 @@ def _dtype_name(first: RecordInfo, word_size: int) -> str:
 
 def _z_key(rec: RecordInfo) -> tuple[Any, ...]:
     ih = rec.int_hdr
+    rh = rec.real_hdr
     pseudo = int(ih[INDEX_LBUSER5])
     if pseudo in (0, INT_MISSING_DATA):
         pseudo = None
 
     within = _within_var_key(rec)
-    return (pseudo, within[13], within[14], within[15])
+    return (
+        pseudo,
+        within[13],
+        within[14],
+        _float_key(rh[INDEX_BRLEV]),
+        within[15],
+        _float_key(rh[INDEX_BHRLEV]),
+        _float_key(rh[INDEX_BRSVD1]),
+        _float_key(rh[INDEX_BRSVD2]),
+    )
 
 
 def _t_key(rec: RecordInfo) -> tuple[Any, ...]:
@@ -359,6 +373,16 @@ def build_variable_index(
             z_keys_set = {_z_key(r) for r in recs_split}
             has_pseudo = any(zk[0] is not None for zk in z_keys_set)
             z_levels = sorted(z_keys_set, reverse=not has_pseudo)
+            z_values = {
+                "pseudo": [z[0] for z in z_levels],
+                "lblev": [z[1] for z in z_levels],
+                "blev": [z[2] for z in z_levels],
+                "brlev": [z[3] for z in z_levels],
+                "bhlev": [z[4] for z in z_levels],
+                "bhrlev": [z[5] for z in z_levels],
+                "brsvd1": [z[6] for z in z_levels],
+                "brsvd2": [z[7] for z in z_levels],
+            }
             t_steps = sorted({_t_key(r) for r in recs_split})
             z_index = {k: i for i, k in enumerate(z_levels)}
             t_index = {k: i for i, k in enumerate(t_steps)}
@@ -477,6 +501,7 @@ def build_variable_index(
                     "is_packed": any(mode != 0 for mode in packing_modes),
                     "is_wgdos_packed": 1 in packing_modes,
                     **_enrich_cf_like_attrs(first),
+                    "z_values": z_values,
                     "time_values": time_values,
                     "time_units": time_units,
                     "time_calendar": calendar,
@@ -498,5 +523,7 @@ def build_variable_index(
                     z_first,
                 ),
             }
+    import pprint
 
+    pprint.pprint(list(variable_index))
     return variable_index

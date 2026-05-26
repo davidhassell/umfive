@@ -565,6 +565,19 @@ class File(Mapping[str, Variable]):
                 if values is not None:
                     return np.asarray(values, dtype=np.float64)
 
+            z_name = axis_map.get("z")
+            if dim_name == z_name:
+                z_values = attrs.get("z_values")
+                if z_values:
+                    lbvc = int(attrs.get("lbvc", 0) or 0)
+                    if lbvc == 9:  # atmosphere_hybrid_sigma_pressure_coordinate
+                        pstar = 1.0e5
+                        b = np.array(z_values["blev"], dtype=np.float64)
+                        ap = np.array(z_values["bhlev"], dtype=np.float64)
+                        return b + ap / pstar
+                    else:
+                        return np.array(z_values["blev"], dtype=np.float64)
+
             if len(shape) < 2:
                 return None
 
@@ -638,6 +651,8 @@ class File(Mapping[str, Variable]):
             cell_methods = _derive_cell_methods(attrs, dim_names, axis_map)
             if cell_methods:
                 attrs.setdefault("cell_methods", cell_methods)
+
+            attrs.pop("z_values", None)
 
             # Detect rotated lat/lon grid from BPLAT (non-trivial pole position).
             bplat = attrs.get("bplat")
