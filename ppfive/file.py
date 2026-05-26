@@ -20,6 +20,59 @@ from .variable import Variable
 logger = logging.getLogger(__name__)
 
 
+# From cf.umread_lib.umread
+_coord_standard_name = {
+    0: None,  # Sigma (or eta, for hybrid coordinate data).
+    1: "air_pressure",  # Pressure (mb).
+    2: "height",  # Height above sea level (km)
+    # Eta (U.M. hybrid coordinates) only:
+    3: "atmosphere_hybrid_sigma_pressure_coordinate",
+    4: "depth",  # Depth below sea level (m)
+    5: "model_level_number",  # Model level.
+    6: "air_potential_temperature",  # Theta
+    7: "atmosphere_sigma_coordinate",  # Sigma only.
+    8: None,  # Sigma-theta
+    10: "latitude",  # Latitude (degrees N).
+    11: "longitude",  # Longitude (degrees E).
+    # Site number (set of parallel rows or columns e.g.Time series):
+    13: None,  # "region",
+    14: "atmosphere_hybrid_height_coordinate",
+    15: "height",
+    20: "time",  # Time (days) (Gregorian calendar (not 360 day year))
+    21: "time",  # Time (months)
+    22: "time",  # Time (years)
+    23: "time",  # Time (model days with 360 day model calendar)
+    40: "pseudo_level",
+    99: None,  # Other
+    -10: "grid_latitude",  # Rotated latitude (degrees).
+    -11: "grid_longitude",  # Rotated longitude (degrees).
+    -20: "radiation_wavelength",
+}
+
+# From cf.umread_lib.umread
+_lbvc_to_axiscode = {
+    1: 2,  # altitude (Height)
+    2: 4,  # depth (Depth)
+    3: None,  # (Geopotential (= g*height))
+    4: None,  # (ICAO height)
+    6: 4,  # model_level_number  # Changed from 5 !!!
+    7: None,  # (Exner pressure)
+    8: 1,  # air_pressure  (Pressure)
+    9: 3,  # atmosphere_hybrid_sigma_pressure_coordinate (Hybrid pressure)
+    # dch check:
+    10: 7,  # atmosphere_sigma_coordinate (Sigma (= p/surface p))
+    16: None,  # (Temperature T)
+    19: 6,  # air_potential_temperature (Potential temperature)
+    27: None,  # (Atmospheric) density
+    28: None,  # (d(p*)/dt .  p* = surface pressure)
+    44: None,  # (Time in seconds)
+    65: 14,  # atmosphere_hybrid_height_coordinate (Hybrid height)
+    129: None,  # Surface
+    176: 10,  # latitude    (Latitude)
+    177: 11,  # longitude   (Longitude)
+}
+
+
 class _PyfiveAttrs(dict):
     """Attribute mapping tuned for cfdm/p5netcdf compatibility.
 
@@ -363,7 +416,7 @@ class File(Mapping[str, Variable]):
             # Default policy: remote readers use 4 threads.
             if isinstance(self._reader, FsspecReader):
                 self._thread_count = 4
-            
+            print(self._reader)
             variable_index = build_variable_index(
                 self._records,
                 self._reader,
@@ -375,6 +428,7 @@ class File(Mapping[str, Variable]):
                 },
             )
 
+            print(1, list(variable_index))
             # Default policy: local POSIX readers choose 1/2/4 by chunk count.
             if isinstance(self._reader, LocalPosixReader):
                 auto_threads = self._local_default_thread_count_from_variable_index(variable_index)
@@ -390,12 +444,17 @@ class File(Mapping[str, Variable]):
                             "cat_range_allowed": self._cat_range_allowed,
                         },
                     )
+                    print(2, list(variable_index))
         else:
             self.fmt = None
             self.byte_ordering = None
             self.word_size = None
 
         self._variables = self._build_variables(variable_index or {})
+        import pprint
+        pprint.pprint(self._variables)
+        print(3, list(self._variables))
+        
         self._refresh_variable_views()
 
     def _refresh_variable_views(self) -> None:
@@ -418,26 +477,44 @@ class File(Mapping[str, Variable]):
             "air_pressure": "down",
         }
 
-        def _vertical_dim_name(lbvc: int) -> str:
-            if lbvc == 8:
-                return "air_pressure"
-            return "model_level_number"
-
         def _semantic_dim_names(shape: tuple[int, ...], attrs: Mapping[str, Any]) -> tuple[str, ...]:
             if len(shape) != 4:
                 return tuple(f"dim_{axis}_{size}" for axis, size in enumerate(shape))
 
+            lbcode = int(attrs.get("lbcode", 0) or 0)
             lbvc = int(attrs.get("lbvc", 0) or 0)
+            lbtim = int(attrs.get("lbtim", 0) or 0)
             lbuser5 = int(attrs.get("lbuser5", 0) or 0)
+
+            ix, iy = _xy_axis_codes(lbcode)
+            iz = _lbvc_to_axiscode.get(lbvc)
+
+            _, ib_ic = divmod(lbtim, 100)
+            _, ic = divmod(ib_ic, 10)
+            calendar = "gregorian" if ic == 1 else "360_day" if ic != 4 else "365_day"
+
+            if iy in (20, 23) or ix in (20, 23):
+                it = None
+            elif calendar == "gregorian":
+                it = 20
+            else:
+                it = 23
+
+            x_name = _coord_standard_name.get(ix) or "grid_longitude"
+            y_name = _coord_standard_name.get(iy) or "grid_latitude"
+            z_name = _coord_standard_name.get(iz) or "model_level_number"
+            t_name = _coord_standard_name.get(it) or "time"
+
             has_pseudo = lbuser5 not in (0, INT_MISSING_DATA)
-            z_name = "pseudo_level" if has_pseudo else _vertical_dim_name(lbvc)
+            if has_pseudo:
+                z_name = "pseudo_level"
 
             # Mirrors build_variable_index ordering for pseudo-level fields.
             z_first = has_pseudo and shape[0] > 1 and shape[1] > 1
             if z_first:
-                return (z_name, "time", "grid_latitude", "grid_longitude")
+                return (z_name, t_name, y_name, x_name)
 
-            return ("time", z_name, "grid_latitude", "grid_longitude")
+            return (t_name, z_name, y_name, x_name)
 
         def _dim_units(name: str) -> str | None:
             if name == "air_pressure":
