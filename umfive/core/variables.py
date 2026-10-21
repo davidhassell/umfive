@@ -23,6 +23,7 @@ from ..constants import (
     INDEX_LBHR,
     INDEX_LBHRD,
     INDEX_LBLEV,
+    INDEX_LBLREC,
     INDEX_LBMIN,
     INDEX_LBMIND,
     INDEX_LBMON,

@@ -478,45 +478,56 @@ class File(Mapping):
         # We have to do this after all of the variables have been
         # created.
         for key, name in cache.items():
+            if len(name) != 1:
+                continue
+
+            name = name[0]
+            
             if key[0] == "orography_variables":
-                if len(name) == 1:
-                    orog_name = name[0]
-                    yx_grid = key[1]
-                    for z in cache.get(
+                yx_grid = key[1]
+                for z in cache.get(
                         ("z_coordinates orography", yx_grid), ()
-                    ):
-                        DataVariableMetadata.formula_terms(
-                            all_variables[z], f"orog: {orog_name}"
-                        )
-            elif key[0] == "mask_variables":
-                if len(name) == 1:
-                    mask_var = all_variables[name[0]]
-                    yx_grid = key[1]
-                    for compressed_name in cache.get(
-                        ("compressed_variables", yx_grid), ()
-                    ):
-                        var = all_variables[compressed_name]
-                        var.data_loader_options["mask_variable"] = mask_var
+                ):
+                    DataVariableMetadata.formula_terms(
+                        all_variables[z], f"orog: {name}"
+                    )
 
-                        # Incorporate the (Y, X) mask shape into the
-                        # variable's data shape and chunk shape (up
-                        # till now, the variable had (0, 0) for the
-                        # (Y, X) shape, because those are the values
-                        # of LBROW and LBNPT in the lookup header).
-                        ny, nx = mask_var.shape[-2:]
-                        shape = list(var.shape)
-                        shape[-2:] = [ny, nx]
-                        var.shape = tuple(shape)
-                         
-                        chunks = list(var.chunks)
-                        chunks[-2:] = [ny, nx]
-                        var._chunks = tuple(chunks)
-
-                    # Nuke variables that have no masks!
+            elif key[0] == "fixed_atmosphere_mask_variables":
+                mask_var = all_variables[name]
+                print(mask_var)
+                yx_grid = key[1]
+                print(yx_grid)
+                print(cache.get(("compressed_atmosphere_variables", yx_grid), ()))
+                for compressed_name in cache.get(
+                        ("compressed_atmosphere_variables", yx_grid), ()
+                ):
+                    print ('CN=',compressed_name)
+                    var = all_variables[compressed_name]
+                    var.data_loader_options["mask_variable"] = mask_var
+                    
+                    # Incorporate the (Y, X) mask shape into the
+                    # variable's data shape and chunk shape (up till
+                    # now, the variable had (0, 0) for the (Y, X)
+                    # shape, because those are the values of LBROW and
+                    # LBNPT in the lookup header).
+                    ny, nx = mask_var.shape[-2:]
+                    shape = list(var.shape)
+                    shape[-2:] = [ny, nx]
+                    var.shape = tuple(shape)
+                    
+                    chunks = list(var.chunks)
+                    chunks[-2:] = [ny, nx]
+                    var._chunks = tuple(chunks)
+                    
+                # Nuke variables that have no masks!
                         
         self._data_variable_names = data_variable_names
         self._all_variables = all_variables
 
+
+        import pprint
+        pprint.pprint(cache)
+        
         # Verbosity
         if verbose == 1:
             print(repr(self))
@@ -1052,14 +1063,14 @@ class DataVariableMetadata:
         self._stash = stash
         self._bplat = BPLAT
         self._bplon = BPLON
-
-        if not LBROW or not LBNPT:
-            logger.warn(
-                f"WARNING: Skipping STASH code {stash} with LBROW={LBROW}, "
-                f"LBNPT={LBNPT}, LBPACK={LBPACK} "
-                "(possibly runlength encoded)"
-            )  # pragma: no cover
-            return
+        
+#        if not LBROW or not LBNPT:
+#            logger.warn(
+#                f"WARNING: Skipping STASH code {stash} with LBROW={LBROW}, "
+#                f"LBNPT={LBNPT}, LBPACK={LBPACK} "
+#                "(possibly runlength encoded)"
+#            )  # pragma: no cover
+#            return
 
         if stash:
             section, item = divmod(stash, 1000)
@@ -1280,16 +1291,16 @@ class DataVariableMetadata:
                 ("orography_variables", self._yx_grid_key), []
             ).append(self.name)
 
-        # Store a mask variable name
-        elif stash == 30:
+        # Store a fixed atmosphere mask variable name
+        elif stash == 30 and submodel == 1 and LBPROC == 0:
             self._cache.setdefault(
-                ("mask_variables", self._yx_grid_key), []
+                ("fixed_atmosphere_mask_variables", self._yx_grid_key), []
             ).append(self.name)
 
-        # Store compressed variables names
-        if LBPACK in (120, 220):
+        # Store compressed atmopshere variables names
+        if submodel == 1 and LBPACK in (120, 220):
             self._cache.setdefault(
-                ("compressed_variables", self._yx_grid_key), []
+                ("compressed_atmosphere_variables", self._yx_grid_key), []
             ).append(self.name)
 
         # --------------------------------------------------------
