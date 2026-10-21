@@ -235,7 +235,7 @@ def decode_record_array_from_raw(raw, rec, mask=None):
 
             # Convert the mask to a boolean array that is True for the
             # type of grid cells (i.e. land or sea) indicated by
-            # LBPACK.                
+            # LBPACK.
             if lbpack == 120:
                 # Mask should be True for land grid cells
                 if mask.dtype != bool:
@@ -246,7 +246,7 @@ def decode_record_array_from_raw(raw, rec, mask=None):
                     mask = mask == 0
                 else:
                     mask = ~mask
-                    
+
             out[mask] = compressed_data
             return out.ravel()
 
@@ -294,7 +294,7 @@ def read_record_array(reader, rec, mask=None):
             required, or else one is required but it could not be
             found (which will likely result in an exception being
             raised).
-    
+
             .. versionadded:: 0.5.0
 
     :Returns:
@@ -304,13 +304,13 @@ def read_record_array(reader, rec, mask=None):
 
     """
     raw = read_record_raw(reader, rec)
-                         
+
     if mask is not None:
         # Make sure that the mask is a numpy array. If the mask is a
         # `DataVariable` then this will always read the data from the
         # dataset.
         mask = mask[...]
-        
+
         # Make sure the mask is 2-d by removing any leading size 1 T
         # and Z dimensions
         shape = mask.shape

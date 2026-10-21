@@ -196,7 +196,7 @@ class DataVariableID(ChunkReadMixin):
         return self._index_cache
 
     def get_data(self, args=()):
-        """Called by `DataVariable.__getitem__`."""        
+        """Called by `DataVariable.__getitem__`."""
         if self.__chunk_init_check():
             return self._get_selection_via_chunks(args)
 
@@ -411,21 +411,29 @@ class _Mixin:
             return
 
         return tuple(dim[0] for dim in DIMENSION_LIST)
-   
+
     @property
     def lookup_header_items(self):
+        """TODO."""
         from .constants import _header_names
 
-        for x in range(45):            
-            print(f"{_header_names[x]}:", [int(rec.int_hdr[x]) for rec in self.chunk_records])
+        for x in range(45):
+            print(
+                f"{_header_names[x]}:",
+                [int(rec.int_hdr[x]) for rec in self.chunk_records],
+            )
 
         for x in range(19):
-            print(f"{_header_names[x+44]}:", [float(rec.real_hdr[x]) for rec in self.chunk_records])
+            print(
+                f"{_header_names[x+44]}:",
+                [float(rec.real_hdr[x]) for rec in self.chunk_records],
+            )
 
     @property
     def first_lookup_header(self):
+        """TODO."""
         print(self.chunk_records[0])
-        
+
     @property
     def maxshape(self):
         """Maximum shape of the data.
@@ -508,8 +516,8 @@ class _Mixin:
 
         units = _axiscode_to_units.get(axiscode)
         if units:
-            self.attrs["units"] = units        
-            
+            self.attrs["units"] = units
+
     def dump(self, display=True, data=False, _level=0):
         """A full description of the variable.
 

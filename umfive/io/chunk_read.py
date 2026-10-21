@@ -89,7 +89,7 @@ class ChunkReadMixin:
                 The array with the same shape as the chunk shape.
 
         """
-#        return decode_record_array_from_raw(raw, rec).reshape(chunk_shape)
+        #        return decode_record_array_from_raw(raw, rec).reshape(chunk_shape)
         out = decode_record_array_from_raw(raw, rec, mask=mask)
         return out.reshape(chunk_shape)
 
@@ -137,7 +137,9 @@ class ChunkReadMixin:
             rec,
             chunk_shape,
         ) in required:
-            chunk_data = read_record_array(self._variable.file._reader, rec, mask=mask)
+            chunk_data = read_record_array(
+                self._variable.file._reader, rec, mask=mask
+            )
             chunk_data = chunk_data.reshape(chunk_shape)
             decoded_chunks.append(
                 (chunk_offset, chunk_selection, out_selection, chunk_data)
@@ -145,7 +147,9 @@ class ChunkReadMixin:
 
         self._store_and_assign(decoded_chunks, out)
 
-    def _read_parallel_local_chunks(self, required, out, thread_count, mask=None):
+    def _read_parallel_local_chunks(
+        self, required, out, thread_count, mask=None
+    ):
         """Thread-parallel read via `os.pread`.
 
         `os.pread` does not advance the file-position pointer, so all
@@ -170,9 +174,7 @@ class ChunkReadMixin:
                 item
             )
             chunk_data = read_record_array(
-                self._variable.file._reader,
-                rec,
-                mask=mask
+                self._variable.file._reader, rec, mask=mask
             ).reshape(chunk_shape)
             return chunk_offset, chunk_selection, out_selection, chunk_data
 
@@ -228,7 +230,9 @@ class ChunkReadMixin:
                 ),
                 raw,
             ) = item
-            chunk_data = self._decode_chunk_buffer(raw, rec, chunk_shape, mask=mask)
+            chunk_data = self._decode_chunk_buffer(
+                raw, rec, chunk_shape, mask=mask
+            )
             return chunk_offset, chunk_selection, out_selection, chunk_data
 
         if thread_count > 1:
@@ -268,11 +272,10 @@ class ChunkReadMixin:
         required = self._get_required_chunks(indexer)
         logger.info(f"{__package__} {len(required)} chunks required")
 
-        mask = self._variable.data_loader_options.get('mask')
-        print('_select_chunks:', repr(mask))
-        
         if not required:
             return
+
+        mask = self._variable.data_loader_options.get("mask")
 
         if thread_count:
             # if cat_range_allowed and isinstance(reader, FsspecReader):
@@ -289,12 +292,16 @@ class ChunkReadMixin:
             if cat_range_allowed and isinstance(reader, ByteReader):
                 fs = getattr(reader, "fs", None)
                 if hasattr(fs, "cat_ranges"):
-                    self._read_bulk_fsspec_chunks(required, out, thread_count, mask=mask)
+                    self._read_bulk_fsspec_chunks(
+                        required, out, thread_count, mask=mask
+                    )
                     return
 
             # Still here?
             if isinstance(reader, LocalPosixReader):
-                self._read_parallel_local_chunks(required, out, thread_count, mask=mask)
+                self._read_parallel_local_chunks(
+                    required, out, thread_count, mask=mask
+                )
                 return
 
         # if (

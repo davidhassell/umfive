@@ -378,18 +378,28 @@ def _equal_extra_data(rec0, rec1):
 
     return True
 
+
 def can_have_multiple_levels(rec):
-    """
-    Evaluates whether a UM field from a dump/fieldsfile header can have Z > 1.
-    Based on Met Office UMDP F3 specification.
+    """Evaluates whether a data variable allows Z > 1.
+
+    :Parameters:
+
+        rec: `RecordInfo`
+            The first loookup header for the data variable.
+
+    :Returns:
+
+        `bool`
+            `True` if Z may be > 1, otherwise `False`.
+
     """
     lblev = rec.int_hdr[INDEX_LBLEV]
     lbvc = rec.int_hdr[INDEX_LBVC]
     lbuser5 = rec.int_hdr[INDEX_LBUSER5]
 
-
-    # 1. Pseudo-level check FIRST (takes precedence over LBLEV)
-    # UMDP F3: LBUSER5 > 0 indicates pseudo-level index (1, 2, 3... e.g. bands, tiles)
+    # 1. Pseudo-level check FIRST (takes precedence over LBLEV) UMDP
+    # F3: LBUSER5 > 0 indicates pseudo-level index (1, 2,
+    # 3... e.g. bands, tiles)
     if lbuser5 > 0:
         return True
 
@@ -397,19 +407,22 @@ def can_have_multiple_levels(rec):
     if lblev == 7777:
         return True
 
-    # 3. Explicit single-level/diagnostic flags (only when NO pseudo-levels exist)
+    # 3. Explicit single-level/diagnostic flags (only when NO
+    # pseudo-levels exist)
     if lblev == 8888 or lbvc == 0:
         return False
 
-    # 4. Continuous 3D/multi-level vertical coordinate types (Atmosphere, Ocean, Soil)
-    # 1: Height, 2: Depth, 3: Geopotential height, 4: Geometric height,
-    # 6: Deep soil levels, 7: Theta surfaces, 8: Pressure, 9: Hybrid pressure,
-    # 10: Sigma, 65: Hybrid height
+    # 4. Continuous 3D/multi-level vertical coordinate types
+    # (Atmosphere, Ocean, Soil) 1: Height, 2: Depth, 3: Geopotential
+    # height, 4: Geometric height, 6: Deep soil levels, 7: Theta
+    # surfaces, 8: Pressure, 9: Hybrid pressure, 10: Sigma, 65: Hybrid
+    # height
     multilevel_lbvc_codes = {1, 2, 3, 4, 6, 7, 8, 9, 10, 65}
     if lbvc in multilevel_lbvc_codes:
         return True
 
-    # 5. Surface / Special Surface Coordinates (126 <= LBVC <= 139, e.g. 129 = Surface, 133 = TOA)
+    # 5. Surface / Special Surface Coordinates (126 <= LBVC <= 139,
+    # e.g. 129 = Surface, 133 = TOA)
     if 126 <= lbvc <= 139:
         if lblev == 9999:
             return False
@@ -417,7 +430,8 @@ def can_have_multiple_levels(rec):
 
     # Default fallback
     return False
-    
+
+
 def build_data_variable_index(records, reader, parallelism):
     """Create a dictionary of data variable descriptions.
 
@@ -502,16 +516,6 @@ def build_data_variable_index(records, reader, parallelism):
             nt = len(t_steps)
 
             is_single_level_surface = not can_have_multiple_levels(first)
-#            (
-#                nz == 1
-#                and 126 <= LBVC <= 139
-#                or (
-#                    # LBVC == 0
-#                    # and first.int_hdr[INDEX_LBLEV] in (0, 8888, 9999)
-#                    first.int_hdr[INDEX_LBLEV] in (0, 8888, 9999)
-#                    and first.int_hdr[INDEX_LBUSER5] == 0
-#                )
-#            )
             has_z_axis = not is_single_level_surface
 
             dtype = np.dtype(_dtype_name(first))
@@ -554,7 +558,7 @@ def build_data_variable_index(records, reader, parallelism):
                 _has_z_axis,
             ):
                 def _load(thread_count=0, cat_range_allowed=True, mask=None):
-                    """TODO
+                    """TODO.
 
                     :Parameters:
 
@@ -565,7 +569,7 @@ def build_data_variable_index(records, reader, parallelism):
                     :Returns:
 
                         `np.ndarray`
-                    
+
                     """
                     if mask is not None:
                         # Reset (_ny, _nx) from (0, 0) to the shape of
@@ -579,8 +583,8 @@ def build_data_variable_index(records, reader, parallelism):
                                 f"(LBPACK={LBPACK} when there is no suitable "
                                 "land/sea mask field in the dataset. "
                                 f"Full lookup header:\n\n{group_recs[0]}"
-                        )
-                    
+                            )
+
                     out_shape = (_nt, _nz, _ny, _nx)
 
                     out = np.empty(out_shape, dtype=_dtype)

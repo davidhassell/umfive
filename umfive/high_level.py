@@ -474,7 +474,7 @@ class File(Mapping):
 
         # Keep a track of size 0 dimenson that might not be needed
         size_zero_dimensions = set()
-        
+
         # Try to add i) "orog" formula term to vertical coordinates;
         # and ii) masks for compressed fields.
         #
@@ -485,12 +485,10 @@ class File(Mapping):
                 continue
 
             name = name[0]
-            
+
             if key[0] == "orography_variables":
                 yx_grid = key[1]
-                for z in cache.get(
-                        ("z_coordinates orography", yx_grid), ()
-                ):
+                for z in cache.get(("z_coordinates orography", yx_grid), ()):
                     DataVariableMetadata.formula_terms(
                         all_variables[z], f"orog: {name}"
                     )
@@ -498,26 +496,28 @@ class File(Mapping):
             elif key[0] == "fixed_atmosphere_mask_variables":
                 mask_var = all_variables[name]
                 yx_grid_compressed = key[1]
-                
+
                 mask_coordinate_names = {
-                    all_variables[coord_name].attrs['axis']: coord_name
-                    for coord_name in mask_var.attrs.get('coordinates', ()).split()
+                    all_variables[coord_name].attrs["axis"]: coord_name
+                    for coord_name in mask_var.attrs.get(
+                        "coordinates", ()
+                    ).split()
                 }
-                mask_grid_mapping = mask_var.attrs.get('grid_mapping')
+                mask_grid_mapping = mask_var.attrs.get("grid_mapping")
 
                 for compressed_name in cache.get(
-                        ("compressed_atmosphere_variables", yx_grid_compressed), ()
+                    ("compressed_atmosphere_variables", yx_grid_compressed), ()
                 ):
                     var = all_variables[compressed_name]
                     attrs = var.attrs
-                    
+
                     # Ignore non-atmopshere variables
                     if var.chunk_records[0].int_hdr[INDEX_LBUSER7] != 1:
                         continue
 
                     # Store the mask inside the variable
                     var.data_loader_options["mask"] = mask_var
-                          
+
                     # Incorporate the (Y, X) mask shape into the
                     # variable's shape and chunk shape (up till now,
                     # the variable had (0, 0) for its (Y, X) shape,
@@ -527,62 +527,66 @@ class File(Mapping):
                     shape = list(var.shape)
                     shape[-2:] = (ny, nx)
                     var.shape = tuple(shape)
-                    
+
                     chunks = var.chunks
                     if chunks is not None:
                         chunks = list(chunks)
                         chunks[-2:] = (ny, nx)
                         var._chunks = tuple(chunks)
-                        
+
                     # Re-set the variable's X and Y dimension and
                     # coordinates, and the grid_mapping, to those of
                     # the mask variable.
-                    coordinates = attrs['coordinates'].split()
-                    DIMENSION_LIST = list(attrs['DIMENSION_LIST'])
+                    coordinates = attrs["coordinates"].split()
+                    DIMENSION_LIST = list(attrs["DIMENSION_LIST"])
                     for i, coord_name in enumerate(coordinates[:]):
                         coord = all_variables[coord_name]
-                        axis = coord.attrs.get('axis')
-                        if axis not in ('X', 'Y'):
+                        axis = coord.attrs.get("axis")
+                        if axis not in ("X", "Y"):
                             continue
-  
-                        mask_coord_name = mask_coordinate_names[axis]
-                        coordinates[i] = mask_coord_name                                
-                        
-                        for i, dimension in enumerate( DIMENSION_LIST):
-                            if dimension == (coord_name,):
-                                DIMENSION_LIST[i] = (mask_coord_name,)                        
 
-                        size_zero_dimensions.add(coord_name)                                     
-                                
-                    attrs['DIMENSION_LIST'] = tuple(DIMENSION_LIST)
-                    attrs['coordinates'] = " ".join(coordinates)
+                        mask_coord_name = mask_coordinate_names[axis]
+                        coordinates[i] = mask_coord_name
+
+                        for i, dimension in enumerate(DIMENSION_LIST):
+                            if dimension == (coord_name,):
+                                DIMENSION_LIST[i] = (mask_coord_name,)
+
+                        size_zero_dimensions.add(coord_name)
+
+                    attrs["DIMENSION_LIST"] = tuple(DIMENSION_LIST)
+                    attrs["coordinates"] = " ".join(coordinates)
                     if mask_grid_mapping is not None:
-                        attrs['grid_mapping'] = mask_grid_mapping
+                        attrs["grid_mapping"] = mask_grid_mapping
                     else:
-                        attrs.pop('grid_mapping', None)
+                        attrs.pop("grid_mapping", None)
 
         # Remove metadata variables that span unnecessary size 0
         # dimensions
         for dimension in size_zero_dimensions:
             keep = False
-            for name, var in all_variables.items():
-                if name in data_variable_names and dimension in var.dimensions:
-                    # At data variable is still using this size 0
+            for name in data_variable_names:
+                var = all_variables[name]
+                if dimension in var.dimensions:
+                    # This data variable is still using this size 0
                     # dimension, so we'd better keep it.
                     keep = True
 
             if keep:
                 continue
-            
+
             # Delete a `DimensionScale` or `Variable` that spans a
-            # no-longer-need size 0 dimension.
+            # no-longer-needed size 0 dimension.
             for name, var in tuple(all_variables.items()):
-                if name not in data_variable_names and dimension in var.dimensions:
+                if (
+                    name not in data_variable_names
+                    and dimension in var.dimensions
+                ):
                     all_variables.pop(name, None)
-                
+
         self._data_variable_names = data_variable_names
-        self._all_variables = all_variables                
-                        
+        self._all_variables = all_variables
+
         # Verbosity
         if verbose == 1:
             print(repr(self))
@@ -1118,14 +1122,14 @@ class DataVariableMetadata:
         self._stash = stash
         self._bplat = BPLAT
         self._bplon = BPLON
-        
-#        if not LBROW or not LBNPT:
-#            logger.warn(
-#                f"WARNING: Skipping STASH code {stash} with LBROW={LBROW}, "
-#                f"LBNPT={LBNPT}, LBPACK={LBPACK} "
-#                "(possibly runlength encoded)"
-#            )  # pragma: no cover
-#            return
+
+        #        if not LBROW or not LBNPT:
+        #            logger.warn(
+        #                f"WARNING: Skipping STASH code {stash} with LBROW={LBROW}, "
+        #                f"LBNPT={LBNPT}, LBPACK={LBPACK} "
+        #                "(possibly runlength encoded)"
+        #            )  # pragma: no cover
+        #            return
 
         if stash:
             section, item = divmod(stash, 1000)
@@ -1339,7 +1343,9 @@ class DataVariableMetadata:
         )
 
         # TODO
-        self._yx_grid_compressed_key = ("yx_grid_compressed",) + self._yx_grid_key[4:]
+        self._yx_grid_compressed_key = (
+            "yx_grid_compressed",
+        ) + self._yx_grid_key[4:]
 
         # Store an orography variable name (this is used to
         # potentially add an "orog" formula term to vertical
@@ -1352,13 +1358,21 @@ class DataVariableMetadata:
         # Store a fixed atmosphere mask variable name
         elif stash == 30 and submodel == 1 and LBPROC == 0:
             self._cache.setdefault(
-                ("fixed_atmosphere_mask_variables", self._yx_grid_compressed_key), []
+                (
+                    "fixed_atmosphere_mask_variables",
+                    self._yx_grid_compressed_key,
+                ),
+                [],
             ).append(self.name)
 
         # Store compressed atmopshere variables names
         if submodel == 1 and LBPACK in (120, 220):
             self._cache.setdefault(
-                ("compressed_atmosphere_variables", self._yx_grid_compressed_key), []
+                (
+                    "compressed_atmosphere_variables",
+                    self._yx_grid_compressed_key,
+                ),
+                [],
             ).append(self.name)
 
         # --------------------------------------------------------
@@ -1378,7 +1392,6 @@ class DataVariableMetadata:
         # Create the 'Z' dimension coordinate
         # --------------------------------------------------------
         axiscode = self._iz
-        print('axiscode=', axiscode, stash, has_z_axis)
         if has_z_axis and axiscode is not None:
             dim_ncvar = None
 
@@ -1489,7 +1502,7 @@ class DataVariableMetadata:
         # *after* the possible creation of a radiation wavelength
         # dimension coordinate.
         # ------------------------------------------------------------
-        if has_z_axis and LBUSER5 > 0:                
+        if has_z_axis and LBUSER5 > 0:
             self.pseudolevel_coordinate(LBUSER5)
 
         # Set the cell_methods attribute
@@ -1641,9 +1654,6 @@ class DataVariableMetadata:
 
         z_recs = self._z_recs
 
-        #       p = z_recs[0].int_hdr[INDEX_LBUSER4] == 634
-        #        if p: print (z_recs[0])
-
         # Zsea
         array_a = tuple(rec.real_hdr[INDEX_BLEV] for rec in z_recs)
         # Zsea lower
@@ -1656,7 +1666,7 @@ class DataVariableMetadata:
         bounds1_b = tuple(rec.real_hdr[INDEX_BRSVD2] for rec in z_recs)
 
         dc = None
-        
+
         key = (
             "atmosphere_hybrid_height_coordinate",
             array_a,
@@ -1671,12 +1681,12 @@ class DataVariableMetadata:
         if dim_ncvar is None:
             # Height at top of atmosphere
             toa_height = self._height_at_top_of_model
-            
+
             if toa_height is None:
                 toa_height = z_recs[-1].real_hdr[INDEX_BRSVD1]
                 if toa_height <= 0:
                     toa_height = None
-                
+
             if toa_height is None:
                 pseudolevels = any(
                     [rec.int_hdr[INDEX_LBUSER5] for rec in z_recs]
@@ -1708,7 +1718,7 @@ class DataVariableMetadata:
                 toa_height = None
             else:
                 toa_height = np.float64(toa_height)
-          
+
             # atmosphere_hybrid_height_coordinate dimension coordinate
             if toa_height is None:
                 array = None
@@ -1762,7 +1772,7 @@ class DataVariableMetadata:
                     DIMENSION_LIST=((self._axis["z"],),),
                 )
                 self.add_to_variables(da_a)
-    
+
                 # "a" domain ancillary bounds
                 bounds_dim = self.bounds_dim(bounds_a)
                 da_a_bounds = Variable(
@@ -1771,9 +1781,9 @@ class DataVariableMetadata:
                     DIMENSION_LIST=((self._axis["z"],), (bounds_dim,)),
                 )
                 self.add_to_variables(da_a_bounds)
-    
+
                 da_a.attrs["bounds"] = da_a_bounds.name
-    
+
                 # "b" domain ancillary
                 da_b = Variable(
                     name="atmosphere_hybrid_height_coordinate_b",
@@ -1786,7 +1796,7 @@ class DataVariableMetadata:
                     DIMENSION_LIST=((self._axis["z"],),),
                 )
                 self.add_to_variables(da_b)
-    
+
                 # "b" domain ancillary bounds
                 bounds_dim = self.bounds_dim(bounds_b)
                 da_b_bounds = Variable(
@@ -1796,13 +1806,14 @@ class DataVariableMetadata:
                 )
                 self.add_to_variables(da_b_bounds)
                 da_b.attrs["bounds"] = da_b_bounds.name
-    
+
                 # Set the 'formula terms' attributes on the parent
                 # coordinate and coordinate bounds variables
                 self.formula_terms(dc, f"a: {da_a.name} b: {da_b.name}")
                 if bounds_ncvar is not None:
                     self.formula_terms(
-                        dc_bounds, f"a: {da_a_bounds.name} b: {da_b_bounds.name}"
+                        dc_bounds,
+                        f"a: {da_a_bounds.name} b: {da_b_bounds.name}",
                     )
 
             self._cache[key] = dim_ncvar
@@ -1811,7 +1822,7 @@ class DataVariableMetadata:
 
         if dc is not None and dc.has_coordinates:
             self.add_to_coordinates(dim_ncvar)
-            
+
         return dim_ncvar
 
     def atmosphere_hybrid_sigma_pressure_coordinate(self, axiscode):
@@ -2353,10 +2364,6 @@ class DataVariableMetadata:
             # 'Z' aggregation has been done along the pseudolevel axis
             array = tuple(rec.int_hdr[INDEX_LBUSER5] for rec in self._z_recs)
             self._z_axis = "p"
-
-        p = self._z_recs[0].int_hdr[INDEX_LBUSER4] == 6111
-        if p: print (self._z_recs[0])
-        if p: print(array)
 
         key = ("pseudolevel_coordinate", array)
         dim_ncvar = self._cache.get(key)
@@ -3185,8 +3192,7 @@ class DataVariableMetadata:
 
         """
         z_recs = self._z_recs
-        p = z_recs[0].int_hdr[INDEX_LBUSER4] == 6111
-        print(axiscode, z_recs[0].int_hdr[INDEX_LBUSER4])
+
         # layer centre
         array = tuple(rec.real_hdr[INDEX_BLEV] for rec in z_recs)
         # lower level boundary
