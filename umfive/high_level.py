@@ -1378,6 +1378,7 @@ class DataVariableMetadata:
         # Create the 'Z' dimension coordinate
         # --------------------------------------------------------
         axiscode = self._iz
+        print('axiscode=', axiscode, stash, has_z_axis)
         if has_z_axis and axiscode is not None:
             dim_ncvar = None
 
@@ -1488,7 +1489,7 @@ class DataVariableMetadata:
         # *after* the possible creation of a radiation wavelength
         # dimension coordinate.
         # ------------------------------------------------------------
-        if has_z_axis and LBUSER5 != 0:
+        if has_z_axis and LBUSER5 > 0:                
             self.pseudolevel_coordinate(LBUSER5)
 
         # Set the cell_methods attribute
@@ -1637,7 +1638,11 @@ class DataVariableMetadata:
                 The name dimension coordinate variable.
 
         """
+
         z_recs = self._z_recs
+
+        #       p = z_recs[0].int_hdr[INDEX_LBUSER4] == 634
+        #        if p: print (z_recs[0])
 
         # Zsea
         array_a = tuple(rec.real_hdr[INDEX_BLEV] for rec in z_recs)
@@ -1650,6 +1655,8 @@ class DataVariableMetadata:
         bounds0_b = tuple(rec.real_hdr[INDEX_BHRLEV] for rec in z_recs)
         bounds1_b = tuple(rec.real_hdr[INDEX_BRSVD2] for rec in z_recs)
 
+        dc = None
+        
         key = (
             "atmosphere_hybrid_height_coordinate",
             array_a,
@@ -1664,6 +1671,12 @@ class DataVariableMetadata:
         if dim_ncvar is None:
             # Height at top of atmosphere
             toa_height = self._height_at_top_of_model
+            
+            if toa_height is None:
+                toa_height = z_recs[-1].real_hdr[INDEX_BRSVD1]
+                if toa_height <= 0:
+                    toa_height = None
+                
             if toa_height is None:
                 pseudolevels = any(
                     [rec.int_hdr[INDEX_LBUSER5] for rec in z_recs]
@@ -1695,9 +1708,10 @@ class DataVariableMetadata:
                 toa_height = None
             else:
                 toa_height = np.float64(toa_height)
-
+          
             # atmosphere_hybrid_height_coordinate dimension coordinate
             if toa_height is None:
+                array = None
                 dc = DimensionScale(
                     name="atmosphere_hybrid_height_coordinate",
                     size=array_a.size,
@@ -1732,75 +1746,72 @@ class DataVariableMetadata:
 
                 dc.attrs["bounds"] = bounds_ncvar
 
-            self._cache.setdefault(
-                ("z_coordinates orography", self._yx_grid_key), []
-            ).append(dim_ncvar)
-
-            if bounds_ncvar is not None:
                 self._cache.setdefault(
                     ("z_coordinates orography", self._yx_grid_key), []
-                ).append(bounds_ncvar)
+                ).append(dim_ncvar)
 
-            # "a" domain ancillary
-            da_a = Variable(
-                name="atmosphere_hybrid_height_coordinate_a",
-                data=array_a,
-                attrs={
-                    "long_name": "height based hybrid coefficient a",
-                    "units": "m",
-                    "bounds": None,
-                },
-                DIMENSION_LIST=((self._axis["z"],),),
-            )
-            self.add_to_variables(da_a)
-
-            # "a" domain ancillary bounds
-            bounds_dim = self.bounds_dim(bounds_a)
-            da_a_bounds = Variable(
-                name=f"{da_a.name}_bounds",
-                data=bounds_a,
-                DIMENSION_LIST=((self._axis["z"],), (bounds_dim,)),
-            )
-            self.add_to_variables(da_a_bounds)
-
-            da_a.attrs["bounds"] = da_a_bounds.name
-
-            # "b" domain ancillary
-            da_b = Variable(
-                name="atmosphere_hybrid_height_coordinate_b",
-                data=array_b,
-                attrs={
-                    "long_name": "height based hybrid coefficient b",
-                    "units": "1",
-                    "bounds": None,
-                },
-                DIMENSION_LIST=((self._axis["z"],),),
-            )
-            self.add_to_variables(da_b)
-
-            # "b" domain ancillary bounds
-            bounds_dim = self.bounds_dim(bounds_b)
-            da_b_bounds = Variable(
-                name=f"{da_b.name}_bounds",
-                data=bounds_b,
-                DIMENSION_LIST=((self._axis["z"],), (bounds_dim,)),
-            )
-            self.add_to_variables(da_b_bounds)
-            da_b.attrs["bounds"] = da_b_bounds.name
-
-            # Set the 'formula terms' attributes on the parent
-            # coordinate and coordinate bounds variables
-            self.formula_terms(dc, f"a: {da_a.name} b: {da_b.name}")
-            if bounds_ncvar is not None:
-                self.formula_terms(
-                    dc_bounds, f"a: {da_a_bounds.name} b: {da_b_bounds.name}"
+                # "a" domain ancillary
+                da_a = Variable(
+                    name="atmosphere_hybrid_height_coordinate_a",
+                    data=array_a,
+                    attrs={
+                        "long_name": "height based hybrid coefficient a",
+                        "units": "m",
+                        "bounds": None,
+                    },
+                    DIMENSION_LIST=((self._axis["z"],),),
                 )
+                self.add_to_variables(da_a)
+    
+                # "a" domain ancillary bounds
+                bounds_dim = self.bounds_dim(bounds_a)
+                da_a_bounds = Variable(
+                    name=f"{da_a.name}_bounds",
+                    data=bounds_a,
+                    DIMENSION_LIST=((self._axis["z"],), (bounds_dim,)),
+                )
+                self.add_to_variables(da_a_bounds)
+    
+                da_a.attrs["bounds"] = da_a_bounds.name
+    
+                # "b" domain ancillary
+                da_b = Variable(
+                    name="atmosphere_hybrid_height_coordinate_b",
+                    data=array_b,
+                    attrs={
+                        "long_name": "height based hybrid coefficient b",
+                        "units": "1",
+                        "bounds": None,
+                    },
+                    DIMENSION_LIST=((self._axis["z"],),),
+                )
+                self.add_to_variables(da_b)
+    
+                # "b" domain ancillary bounds
+                bounds_dim = self.bounds_dim(bounds_b)
+                da_b_bounds = Variable(
+                    name=f"{da_b.name}_bounds",
+                    data=bounds_b,
+                    DIMENSION_LIST=((self._axis["z"],), (bounds_dim,)),
+                )
+                self.add_to_variables(da_b_bounds)
+                da_b.attrs["bounds"] = da_b_bounds.name
+    
+                # Set the 'formula terms' attributes on the parent
+                # coordinate and coordinate bounds variables
+                self.formula_terms(dc, f"a: {da_a.name} b: {da_b.name}")
+                if bounds_ncvar is not None:
+                    self.formula_terms(
+                        dc_bounds, f"a: {da_a_bounds.name} b: {da_b_bounds.name}"
+                    )
 
             self._cache[key] = dim_ncvar
         else:
             self._axis["z"] = dim_ncvar
 
-        self.add_to_coordinates(dim_ncvar)
+        if dc is not None and dc.has_coordinates:
+            self.add_to_coordinates(dim_ncvar)
+            
         return dim_ncvar
 
     def atmosphere_hybrid_sigma_pressure_coordinate(self, axiscode):
@@ -2342,6 +2353,10 @@ class DataVariableMetadata:
             # 'Z' aggregation has been done along the pseudolevel axis
             array = tuple(rec.int_hdr[INDEX_LBUSER5] for rec in self._z_recs)
             self._z_axis = "p"
+
+        p = self._z_recs[0].int_hdr[INDEX_LBUSER4] == 6111
+        if p: print (self._z_recs[0])
+        if p: print(array)
 
         key = ("pseudolevel_coordinate", array)
         dim_ncvar = self._cache.get(key)
@@ -3170,7 +3185,8 @@ class DataVariableMetadata:
 
         """
         z_recs = self._z_recs
-
+        p = z_recs[0].int_hdr[INDEX_LBUSER4] == 6111
+        print(axiscode, z_recs[0].int_hdr[INDEX_LBUSER4])
         # layer centre
         array = tuple(rec.real_hdr[INDEX_BLEV] for rec in z_recs)
         # lower level boundary

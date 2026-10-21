@@ -411,7 +411,21 @@ class _Mixin:
             return
 
         return tuple(dim[0] for dim in DIMENSION_LIST)
+   
+    @property
+    def lookup_header_items(self):
+        from .constants import _header_names
 
+        for x in range(45):            
+            print(f"{_header_names[x]}:", [int(rec.int_hdr[x]) for rec in self.chunk_records])
+
+        for x in range(19):
+            print(f"{_header_names[x+44]}:", [float(rec.real_hdr[x]) for rec in self.chunk_records])
+
+    @property
+    def first_lookup_header(self):
+        print(self.chunk_records[0])
+        
     @property
     def maxshape(self):
         """Maximum shape of the data.
@@ -494,8 +508,8 @@ class _Mixin:
 
         units = _axiscode_to_units.get(axiscode)
         if units:
-            self.attrs["units"] = units
-
+            self.attrs["units"] = units        
+            
     def dump(self, display=True, data=False, _level=0):
         """A full description of the variable.
 

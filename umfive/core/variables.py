@@ -378,7 +378,46 @@ def _equal_extra_data(rec0, rec1):
 
     return True
 
+def can_have_multiple_levels(rec):
+    """
+    Evaluates whether a UM field from a dump/fieldsfile header can have Z > 1.
+    Based on Met Office UMDP F3 specification.
+    """
+    lblev = rec.int_hdr[INDEX_LBLEV]
+    lbvc = rec.int_hdr[INDEX_LBVC]
+    lbuser5 = rec.int_hdr[INDEX_LBUSER5]
 
+
+    # 1. Pseudo-level check FIRST (takes precedence over LBLEV)
+    # UMDP F3: LBUSER5 > 0 indicates pseudo-level index (1, 2, 3... e.g. bands, tiles)
+    if lbuser5 > 0:
+        return True
+
+    # 2. Multi-level field packed into a single header (e.g. LBCs)
+    if lblev == 7777:
+        return True
+
+    # 3. Explicit single-level/diagnostic flags (only when NO pseudo-levels exist)
+    if lblev == 8888 or lbvc == 0:
+        return False
+
+    # 4. Continuous 3D/multi-level vertical coordinate types (Atmosphere, Ocean, Soil)
+    # 1: Height, 2: Depth, 3: Geopotential height, 4: Geometric height,
+    # 6: Deep soil levels, 7: Theta surfaces, 8: Pressure, 9: Hybrid pressure,
+    # 10: Sigma, 65: Hybrid height
+    multilevel_lbvc_codes = {1, 2, 3, 4, 6, 7, 8, 9, 10, 65}
+    if lbvc in multilevel_lbvc_codes:
+        return True
+
+    # 5. Surface / Special Surface Coordinates (126 <= LBVC <= 139, e.g. 129 = Surface, 133 = TOA)
+    if 126 <= lbvc <= 139:
+        if lblev == 9999:
+            return False
+        return True
+
+    # Default fallback
+    return False
+    
 def build_data_variable_index(records, reader, parallelism):
     """Create a dictionary of data variable descriptions.
 
@@ -462,16 +501,17 @@ def build_data_variable_index(records, reader, parallelism):
             nz = len(z_levels)
             nt = len(t_steps)
 
-            is_single_level_surface = (
-                nz == 1
-                and 126 <= LBVC <= 139
-                or (
-                    # LBVC == 0
-                    # and first.int_hdr[INDEX_LBLEV] in (0, 8888, 9999)
-                    first.int_hdr[INDEX_LBLEV] in (0, 8888, 9999)
-                    and first.int_hdr[INDEX_LBUSER5] == 0
-                )
-            )
+            is_single_level_surface = not can_have_multiple_levels(first)
+#            (
+#                nz == 1
+#                and 126 <= LBVC <= 139
+#                or (
+#                    # LBVC == 0
+#                    # and first.int_hdr[INDEX_LBLEV] in (0, 8888, 9999)
+#                    first.int_hdr[INDEX_LBLEV] in (0, 8888, 9999)
+#                    and first.int_hdr[INDEX_LBUSER5] == 0
+#                )
+#            )
             has_z_axis = not is_single_level_surface
 
             dtype = np.dtype(_dtype_name(first))
