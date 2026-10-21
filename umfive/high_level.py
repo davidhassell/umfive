@@ -498,17 +498,22 @@ class File(Mapping):
                         var = all_variables[compressed_name]
                         var.data_loader_options["mask_variable"] = mask_var
 
-                        # Fix up the uncompressed shape and chunk shape
-                        # now that we have a mask.
+                        # Incorporate the (Y, X) mask shape into the
+                        # variable's data shape and chunk shape (up
+                        # till now, the variable had (0, 0) for the
+                        # (Y, X) shape, because those are the values
+                        # of LBROW and LBNPT in the lookup header).
                         ny, nx = mask_var.shape[-2:]
                         shape = list(var.shape)
                         shape[-2:] = [ny, nx]
                         var.shape = tuple(shape)
-
+                         
                         chunks = list(var.chunks)
                         chunks[-2:] = [ny, nx]
                         var._chunks = tuple(chunks)
 
+                    # Nuke variables that have no masks!
+                        
         self._data_variable_names = data_variable_names
         self._all_variables = all_variables
 

@@ -93,6 +93,7 @@ def _between_var_key(rec):
         int(ih[INDEX_LBHEM]),
         int(ih[INDEX_LBROW]),
         int(ih[INDEX_LBNPT]),
+        int(ih[INDEX_LBLREC]) if int(ih[INDEX_LBPACK]) in (120, 220) else -1,
         _float_key(rh[INDEX_BGOR]),
         _float_key(rh[INDEX_BZY]),
         _float_key(rh[INDEX_BDY]),
@@ -511,11 +512,53 @@ def build_data_variable_index(records, reader, parallelism):
                 _z_index,
                 _has_z_axis,
             ):
-                def _load(thread_count=0, cat_range_allowed=True, mask_variable=None):
-                    out_shape = (_nt, _nz, _ny, _nx)
-                    mask = None
+                def _load(thread_count=0, cat_range_allowed=True,
+                          mask_variable=None):
+                    """TODO
+
+                    :Parameters:
+
+                        thread_count: `int`, optional
+                        cat_range_allowed: `bool`, optoinal
+                        mask_variable: `None` or `DataVariable`, optional
+
+                    :Returns:
+
+                        `np.ndarray`
+                    
+                    """                       
                     if mask_variable is not None:
+                        # Get the land/sea mask data array
                         mask = mask_variable[...]
+
+                        # Remove any leading size 1 T and Z dimensions
+                        # from the mask
+                        ndim = mask.ndim
+                        shape = mask.shape
+                        if ndim > 2 and set(shape[:ndim-2]) == {1}:
+                            mask = mask.reshape(shape[-2:])
+
+                        if mask.ndim > 2:
+                            raise ValueError(
+                                "Can't get run length encoded data "
+                                f"(LBPACK={LBPACK} when the land/sea mask is "
+                                "not logically 2-d. Mask shape is {mask.shape}"
+                        )
+                            
+                        # Reset (_ny, _nx) from (0, 0) to the shape of
+                        # the mask
+                        _ny, _nx = mask.shape                        
+                    else:
+                        mask = None
+                        if group_recs[0].int_hdr[LBPACK] in (120, 110):
+                            raise ValueError(
+                                "Can't get run length encoded data "
+                                f"(LBPACK={LBPACK} when there is no suitable "
+                                "land/sea mask field in the dataset. "
+                                f"Full lookup header:\n\n{group_recs[0]}"
+                        )
+                    
+                    out_shape = (_nt, _nz, _ny, _nx)
 
                     out = np.empty(out_shape, dtype=_dtype)
                     out.fill(np.nan if _dtype.kind == "f" else 0)
@@ -545,7 +588,9 @@ def build_data_variable_index(records, reader, parallelism):
                                 rec, raw = item
                                 ti = _t_index[_t_key(rec)]
                                 zi = _z_index[_z_key(rec)]
-                                values = decode_record_array_from_raw(raw, rec, mask=mask)
+                                values = decode_record_array_from_raw(
+                                    raw, rec, mask=mask
+                                )
                                 return ti, zi, values
 
                             if thread_count > 1:
