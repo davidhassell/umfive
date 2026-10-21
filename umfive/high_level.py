@@ -28,6 +28,7 @@ from .constants import (
     INDEX_LBFC,
     INDEX_LBHEM,
     INDEX_LBLEV,
+    INDEX_LBLREC,
     INDEX_LBMIN,
     INDEX_LBMIND,
     INDEX_LBNPT,
@@ -471,16 +472,19 @@ class File(Mapping):
                 # variable
                 record_info[name] = data_variable.chunk_records
 
-        # Try to add an "orog" formula term to vertical
-        # coordinates, and find masks for compressed fields.
-        # We have to do this after all of the variables
-        # have been created.
+        # Try to add i) "orog" formula term to vertical coordinates;
+        # and ii) masks for compressed fields.
+        #
+        # We have to do this after all of the variables have been
+        # created.
         for key, name in cache.items():
             if key[0] == "orography_variables":
                 if len(name) == 1:
                     orog_name = name[0]
                     yx_grid = key[1]
-                    for z in cache.get(("z_coordinates orography", yx_grid), ()):
+                    for z in cache.get(
+                        ("z_coordinates orography", yx_grid), ()
+                    ):
                         DataVariableMetadata.formula_terms(
                             all_variables[z], f"orog: {orog_name}"
                         )
@@ -488,7 +492,9 @@ class File(Mapping):
                 if len(name) == 1:
                     mask_var = all_variables[name[0]]
                     yx_grid = key[1]
-                    for compressed_name in cache.get(("compressed_variables", yx_grid), ()):
+                    for compressed_name in cache.get(
+                        ("compressed_variables", yx_grid), ()
+                    ):
                         var = all_variables[compressed_name]
                         var.data_loader_options["mask_variable"] = mask_var
 
@@ -1009,6 +1015,8 @@ class DataVariableMetadata:
         LBYR = int_hdr[INDEX_LBYR]
         LBNPT = int_hdr[INDEX_LBNPT]
         LBROW = int_hdr[INDEX_LBROW]
+        LBLREC = int_hdr[INDEX_LBLREC]
+        LBPACK = int_hdr[INDEX_LBPACK]
         LBTIM = int_hdr[INDEX_LBTIM]
         LBCODE = int_hdr[INDEX_LBCODE]
         LBPROC = int_hdr[INDEX_LBPROC]
@@ -1032,7 +1040,7 @@ class DataVariableMetadata:
         if not LBROW or not LBNPT:
             logger.warn(
                 f"WARNING: Skipping STASH code {stash} with LBROW={LBROW}, "
-                f"LBNPT={LBNPT}, LBPACK={int_hdr[INDEX_LBPACK]} "
+                f"LBNPT={LBNPT}, LBPACK={LBPACK} "
                 "(possibly runlength encoded)"
             )  # pragma: no cover
             return
@@ -1236,6 +1244,7 @@ class DataVariableMetadata:
             "yx_grid",
             LBROW,
             LBNPT,
+            LBLREC,
             int_hdr[INDEX_LBHEM],
             LBCODE,
             BPLAT,
@@ -1256,17 +1265,16 @@ class DataVariableMetadata:
             ).append(self.name)
 
         # Store a mask variable name
-        if stash == 30:
+        elif stash == 30:
             self._cache.setdefault(
                 ("mask_variables", self._yx_grid_key), []
             ).append(self.name)
 
-        # Store compressed variables that might need a mask
-        if int_hdr[INDEX_LBPACK] in (120, 220):
+        # Store compressed variables names
+        if LBPACK in (120, 220):
             self._cache.setdefault(
                 ("compressed_variables", self._yx_grid_key), []
             ).append(self.name)
-
 
         # --------------------------------------------------------
         # Get the extra data for this group
