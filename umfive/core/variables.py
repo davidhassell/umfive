@@ -513,42 +513,24 @@ def build_data_variable_index(records, reader, parallelism):
                 _z_index,
                 _has_z_axis,
             ):
-                def _load(thread_count=0, cat_range_allowed=True,
-                          mask_variable=None):
+                def _load(thread_count=0, cat_range_allowed=True, mask=None):
                     """TODO
 
                     :Parameters:
 
                         thread_count: `int`, optional
                         cat_range_allowed: `bool`, optoinal
-                        mask_variable: `None` or `DataVariable`, optional
+                        mask: `None` or `DataVariable` `or `np.ndarray`, optional
 
                     :Returns:
 
                         `np.ndarray`
                     
-                    """                       
-                    if mask_variable is not None:
-                        # Get the land/sea mask data array
-                        mask = mask_variable[...]
-
-                        # Remove any leading size 1 T and Z dimensions
-                        # from the mask
-                        ndim = mask.ndim
-                        shape = mask.shape
-                        if ndim > 2 and set(shape[:ndim-2]) == {1}:
-                            mask = mask.reshape(shape[-2:])
-
-                        if mask.ndim > 2:
-                            raise ValueError(
-                                "Can't get run length encoded data "
-                                f"(LBPACK={LBPACK} when the land/sea mask is "
-                                "not logically 2-d. Mask shape is {mask.shape}"
-                        )
-                            
+                    """
+                    if mask is not None:
                         # Reset (_ny, _nx) from (0, 0) to the shape of
                         # the mask
-                        _ny, _nx = mask.shape                        
+                        _ny, _nx = mask.shape[-2:]
                     else:
                         mask = None
                         if group_recs[0].int_hdr[LBPACK] in (120, 110):

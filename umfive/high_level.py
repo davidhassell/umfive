@@ -472,6 +472,9 @@ class File(Mapping):
                 # variable
                 record_info[name] = data_variable.chunk_records
 
+        # Keep a track of size 0 dimenson that might not be needed
+        size_zero_dimensions = set()
+        
         # Try to add i) "orog" formula term to vertical coordinates;
         # and ii) masks for compressed fields.
         #
@@ -494,40 +497,92 @@ class File(Mapping):
 
             elif key[0] == "fixed_atmosphere_mask_variables":
                 mask_var = all_variables[name]
-                print(mask_var)
-                yx_grid = key[1]
-                print(yx_grid)
-                print(cache.get(("compressed_atmosphere_variables", yx_grid), ()))
+                yx_grid_compressed = key[1]
+                
+                mask_coordinate_names = {
+                    all_variables[coord_name].attrs['axis']: coord_name
+                    for coord_name in mask_var.attrs.get('coordinates', ()).split()
+                }
+                mask_grid_mapping = mask_var.attrs.get('grid_mapping')
+
                 for compressed_name in cache.get(
-                        ("compressed_atmosphere_variables", yx_grid), ()
+                        ("compressed_atmosphere_variables", yx_grid_compressed), ()
                 ):
-                    print ('CN=',compressed_name)
                     var = all_variables[compressed_name]
-                    var.data_loader_options["mask_variable"] = mask_var
+                    attrs = var.attrs
                     
+                    # Ignore non-atmopshere variables
+                    if var.chunk_records[0].int_hdr[INDEX_LBUSER7] != 1:
+                        continue
+
+                    # Store the mask inside the variable
+                    var.data_loader_options["mask"] = mask_var
+                          
                     # Incorporate the (Y, X) mask shape into the
-                    # variable's data shape and chunk shape (up till
-                    # now, the variable had (0, 0) for the (Y, X)
-                    # shape, because those are the values of LBROW and
-                    # LBNPT in the lookup header).
+                    # variable's shape and chunk shape (up till now,
+                    # the variable had (0, 0) for its (Y, X) shape,
+                    # because those are the values of LBROW and LBNPT
+                    # in its lookup headers).
                     ny, nx = mask_var.shape[-2:]
                     shape = list(var.shape)
-                    shape[-2:] = [ny, nx]
+                    shape[-2:] = (ny, nx)
                     var.shape = tuple(shape)
                     
-                    chunks = list(var.chunks)
-                    chunks[-2:] = [ny, nx]
-                    var._chunks = tuple(chunks)
-                    
-                # Nuke variables that have no masks!
+                    chunks = var.chunks
+                    if chunks is not None:
+                        chunks = list(chunks)
+                        chunks[-2:] = (ny, nx)
+                        var._chunks = tuple(chunks)
                         
+                    # Re-set the variable's X and Y dimension and
+                    # coordinates, and the grid_mapping, to those of
+                    # the mask variable.
+                    coordinates = attrs['coordinates'].split()
+                    DIMENSION_LIST = list(attrs['DIMENSION_LIST'])
+                    for i, coord_name in enumerate(coordinates[:]):
+                        coord = all_variables[coord_name]
+                        axis = coord.attrs.get('axis')
+                        if axis not in ('X', 'Y'):
+                            continue
+  
+                        mask_coord_name = mask_coordinate_names[axis]
+                        coordinates[i] = mask_coord_name                                
+                        
+                        for i, dimension in enumerate( DIMENSION_LIST):
+                            if dimension == (coord_name,):
+                                DIMENSION_LIST[i] = (mask_coord_name,)                        
+
+                        size_zero_dimensions.add(coord_name)                                     
+                                
+                    attrs['DIMENSION_LIST'] = tuple(DIMENSION_LIST)
+                    attrs['coordinates'] = " ".join(coordinates)
+                    if mask_grid_mapping is not None:
+                        attrs['grid_mapping'] = mask_grid_mapping
+                    else:
+                        attrs.pop('grid_mapping', None)
+
+        # Remove metadata variables that span unnecessary size 0
+        # dimensions
+        for dimension in size_zero_dimensions:
+            keep = False
+            for name, var in all_variables.items():
+                if name in data_variable_names and dimension in var.dimensions:
+                    # At data variable is still using this size 0
+                    # dimension, so we'd better keep it.
+                    keep = True
+
+            if keep:
+                continue
+            
+            # Delete a `DimensionScale` or `Variable` that spans a
+            # no-longer-need size 0 dimension.
+            for name, var in tuple(all_variables.items()):
+                if name not in data_variable_names and dimension in var.dimensions:
+                    all_variables.pop(name, None)
+                
         self._data_variable_names = data_variable_names
-        self._all_variables = all_variables
-
-
-        import pprint
-        pprint.pprint(cache)
-        
+        self._all_variables = all_variables                
+                        
         # Verbosity
         if verbose == 1:
             print(repr(self))
@@ -1283,6 +1338,9 @@ class DataVariableMetadata:
             real_hdr[INDEX_BZY],
         )
 
+        # TODO
+        self._yx_grid_compressed_key = ("yx_grid_compressed",) + self._yx_grid_key[4:]
+
         # Store an orography variable name (this is used to
         # potentially add an "orog" formula term to vertical
         # coordinates)
@@ -1294,13 +1352,13 @@ class DataVariableMetadata:
         # Store a fixed atmosphere mask variable name
         elif stash == 30 and submodel == 1 and LBPROC == 0:
             self._cache.setdefault(
-                ("fixed_atmosphere_mask_variables", self._yx_grid_key), []
+                ("fixed_atmosphere_mask_variables", self._yx_grid_compressed_key), []
             ).append(self.name)
 
         # Store compressed atmopshere variables names
         if submodel == 1 and LBPACK in (120, 220):
             self._cache.setdefault(
-                ("compressed_atmosphere_variables", self._yx_grid_key), []
+                ("compressed_atmosphere_variables", self._yx_grid_compressed_key), []
             ).append(self.name)
 
         # --------------------------------------------------------

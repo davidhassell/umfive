@@ -201,7 +201,7 @@ def decode_record_array_from_raw(raw, rec, mask=None):
             contain floats such that zero indicates a sea grid cell
             and non-zero indicates a land grid cell. The default of
             `None` indicates that no land/sea mask required, or else
-            one is required but could not be found.
+            one is required but it could not be found.
 
             .. versionadded:: 0.5.0
 
@@ -224,8 +224,9 @@ def decode_record_array_from_raw(raw, rec, mask=None):
             # The data is compressed
             if mask is None:
                 raise RuntimeError(
-                    f"Cannot unpack LBPACK={lbpack} field: no suitable "
-                    "land/sea mask found in file."
+                    f"Cannot uncompress field with LBPACK={lbpack}: no suitable "
+                    "land/sea mask found in dataset. Lookup header:\n\n"
+                    f"{rec}"
                 )
 
             dtype = _dtype_for_record(rec)
@@ -234,14 +235,18 @@ def decode_record_array_from_raw(raw, rec, mask=None):
 
             # Convert the mask to a boolean array that is True for the
             # type of grid cells (i.e. land or sea) indicated by
-            # LBPACK.
+            # LBPACK.                
             if lbpack == 120:
-                # True for land grid cells
-                mask = mask != 0
+                # Mask should be True for land grid cells
+                if mask.dtype != bool:
+                    mask = mask != 0
             else:
-                # True for sea grid cells
-                mask = mask == 0
-
+                # Mask should be True for sea grid cells
+                if mask.dtype != bool:
+                    mask = mask == 0
+                else:
+                    mask = ~mask
+                    
             out[mask] = compressed_data
             return out.ravel()
 
@@ -283,8 +288,12 @@ def read_record_array(reader, rec, mask=None):
         rec: `RecordInfo`
             The record for the data array.
 
-        mask: `numpy.ndarray` or `None`, optional
-            The land/sea mask used to unpack compressed fields.
+        mask: `None` or `DataVariable` or `np.ndarray`, optional
+            The land/sea mask used to unpack compressed fields. The
+            default of `None` indicates that no land/sea mask
+            required, or else one is required but it could not be
+            found (which will likely result in an exception being
+            raised).
     
             .. versionadded:: 0.5.0
 
@@ -295,4 +304,24 @@ def read_record_array(reader, rec, mask=None):
 
     """
     raw = read_record_raw(reader, rec)
+                         
+    if mask is not None:
+        # Make sure that the mask is a numpy array. If the mask is a
+        # `DataVariable` then this will always read the data from the
+        # dataset.
+        mask = mask[...]
+        
+        # Make sure the mask is 2-d by removing any leading size 1 T
+        # and Z dimensions
+        shape = mask.shape
+        if mask.size == shape[-2] * shape[-1]:
+            mask = mask.reshape(shape[-2:])
+
+        if mask.ndim > 2:
+            raise ValueError(
+                "Can't get run length encoded data "
+                f"(LBPACK={LBPACK}) when the land/sea mask is "
+                "not logically 2-d. Mask shape is {mask.shape}"
+            )
+
     return decode_record_array_from_raw(raw, rec, mask=mask)

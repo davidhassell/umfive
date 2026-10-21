@@ -196,7 +196,7 @@ class DataVariableID(ChunkReadMixin):
         return self._index_cache
 
     def get_data(self, args=()):
-        """Called by `DataVariable.__getitem__`."""
+        """Called by `DataVariable.__getitem__`."""        
         if self.__chunk_init_check():
             return self._get_selection_via_chunks(args)
 
