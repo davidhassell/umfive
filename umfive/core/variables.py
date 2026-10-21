@@ -169,6 +169,16 @@ def _record_is_skippable(rec):
     if int(ih[INDEX_LBROW]) == INT_MISSING_DATA:
         return True
 
+    lbpack = int(ih[INDEX_LBPACK])
+    if lbpack in (120, 220):
+        return False
+
+    if int(ih[INDEX_LBNPT]) == INT_MISSING_DATA:
+        return True
+
+    if int(ih[INDEX_LBROW]) == INT_MISSING_DATA:
+        return True
+
     compression = (lbpack // 10) % 10
     if compression == 1:
         return True

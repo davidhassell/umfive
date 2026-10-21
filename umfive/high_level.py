@@ -1267,6 +1267,7 @@ class DataVariableMetadata:
                 ("compressed_variables", self._yx_grid_key), []
             ).append(self.name)
 
+
         # --------------------------------------------------------
         # Get the extra data for this group
         # --------------------------------------------------------
