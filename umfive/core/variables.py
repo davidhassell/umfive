@@ -159,13 +159,17 @@ def _record_is_skippable(rec):
     """
     ih = rec.int_hdr
 
+    lbpack = int(ih[INDEX_LBPACK])
+    if lbpack in (120, 220):
+        return False
+
     if int(ih[INDEX_LBNPT]) == INT_MISSING_DATA:
         return True
 
     if int(ih[INDEX_LBROW]) == INT_MISSING_DATA:
         return True
 
-    compression = (int(ih[INDEX_LBPACK]) // 10) % 10
+    compression = (lbpack // 10) % 10
     if compression == 1:
         return True
 
@@ -497,8 +501,11 @@ def build_data_variable_index(records, reader, parallelism):
                 _z_index,
                 _has_z_axis,
             ):
-                def _load(thread_count=0, cat_range_allowed=True):
+                def _load(thread_count=0, cat_range_allowed=True, mask_variable=None):
                     out_shape = (_nt, _nz, _ny, _nx)
+                    mask = None
+                    if mask_variable is not None:
+                        mask = mask_variable[...]
 
                     out = np.empty(out_shape, dtype=_dtype)
                     out.fill(np.nan if _dtype.kind == "f" else 0)
@@ -528,7 +535,7 @@ def build_data_variable_index(records, reader, parallelism):
                                 rec, raw = item
                                 ti = _t_index[_t_key(rec)]
                                 zi = _z_index[_z_key(rec)]
-                                values = decode_record_array_from_raw(raw, rec)
+                                values = decode_record_array_from_raw(raw, rec, mask=mask)
                                 return ti, zi, values
 
                             if thread_count > 1:
@@ -561,7 +568,7 @@ def build_data_variable_index(records, reader, parallelism):
                         def _read_one(rec):
                             ti = _t_index[_t_key(rec)]
                             zi = _z_index[_z_key(rec)]
-                            values = read_record_array(reader, rec)
+                            values = read_record_array(reader, rec, mask=mask)
                             return ti, zi, values
 
                         with ThreadPoolExecutor(
@@ -582,7 +589,7 @@ def build_data_variable_index(records, reader, parallelism):
                     for rec in group_recs:
                         ti = _t_index[_t_key(rec)]
                         zi = _z_index[_z_key(rec)]
-                        values = read_record_array(reader, rec)
+                        values = read_record_array(reader, rec, mask=mask)
                         out[ti, zi, :, :] = values.reshape((_ny, _nx))
 
                     if not _has_z_axis:

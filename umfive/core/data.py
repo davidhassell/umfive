@@ -184,7 +184,7 @@ def read_record_raw(reader, rec):
     return raw
 
 
-def decode_record_array_from_raw(raw, rec):
+def decode_record_array_from_raw(raw, rec, mask=None):
     """Decode packed data.
 
     :Parameters:
@@ -207,6 +207,19 @@ def decode_record_array_from_raw(raw, rec):
     nwords = get_num_data_words(rec.int_hdr, word_size)
 
     if pack == 0:
+        lbpack = int(rec.int_hdr[INDEX_LBPACK])
+        if lbpack in (120, 220):
+            if mask is None:
+                raise RuntimeError(
+                    f"Cannot unpack LBPACK={lbpack} field: no suitable "
+                    "land/sea mask found in file."
+                )
+            dtype = _dtype_for_record(rec)
+            packed = np.frombuffer(raw, dtype=dtype)
+            out = np.full(mask.shape, rec.real_hdr[INDEX_BMDI], dtype=dtype)
+            out[mask.astype(bool)] = packed
+            return out.ravel()
+
         need = nwords * word_size
         dtype = _dtype_for_record(rec)
         return np.frombuffer(raw[:need], dtype=dtype, count=nwords).copy()
@@ -232,7 +245,7 @@ def decode_record_array_from_raw(raw, rec):
     )
 
 
-def read_record_array(reader, rec):
+def read_record_array(reader, rec, mask=None):
     """Read a data array into a `numpy` array.
 
     :Parameters:
@@ -243,6 +256,9 @@ def read_record_array(reader, rec):
         rec: `RecordInfo`
             The record for the data array.
 
+        mask: `numpy.ndarray`, optional
+            The land/sea mask used to unpack compressed fields.
+
     :Returns:
 
         `nump.ndarray`
@@ -250,4 +266,4 @@ def read_record_array(reader, rec):
 
     """
     raw = read_record_raw(reader, rec)
-    return decode_record_array_from_raw(raw, rec)
+    return decode_record_array_from_raw(raw, rec, mask=mask)

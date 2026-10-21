@@ -472,27 +472,25 @@ class File(Mapping):
                 record_info[name] = data_variable.chunk_records
 
         # Try to add an "orog" formula term to vertical
-        # coordinates. We have to do this after all of the variables
+        # coordinates, and find masks for compressed fields.
+        # We have to do this after all of the variables
         # have been created.
         for key, name in cache.items():
-            if key[0] != "orography_variables":
-                # This key does not store orography variable names
-                continue
-
-            if len(name) != 1:
-                # There is not exactly one orography variable for this
-                # Y-X grid
-                continue
-
-            orog_name = name[0]
-            yx_grid = key[1]
-
-            # Add the "orog" formula term to all vertical coordinates
-            # that share the same Y-X grid as this orography
-            for z in cache.get(("z_coordinates orography", yx_grid), ()):
-                DataVariableMetadata.formula_terms(
-                    all_variables[z], f"orog: {orog_name}"
-                )
+            if key[0] == "orography_variables":
+                if len(name) == 1:
+                    orog_name = name[0]
+                    yx_grid = key[1]
+                    for z in cache.get(("z_coordinates orography", yx_grid), ()):
+                        DataVariableMetadata.formula_terms(
+                            all_variables[z], f"orog: {orog_name}"
+                        )
+            elif key[0] == "mask_variables":
+                if len(name) == 1:
+                    mask_var = all_variables[name[0]]
+                    yx_grid = key[1]
+                    for compressed_name in cache.get(("compressed_variables", yx_grid), ()):
+                        var = all_variables[compressed_name]
+                        var.data_loader_options["mask_variable"] = mask_var
 
         self._data_variable_names = data_variable_names
         self._all_variables = all_variables
@@ -1255,6 +1253,18 @@ class DataVariableMetadata:
         if stash == 33:
             self._cache.setdefault(
                 ("orography_variables", self._yx_grid_key), []
+            ).append(self.name)
+
+        # Store a mask variable name
+        if stash == 30:
+            self._cache.setdefault(
+                ("mask_variables", self._yx_grid_key), []
+            ).append(self.name)
+
+        # Store compressed variables that might need a mask
+        if int_hdr[INDEX_LBPACK] in (120, 220):
+            self._cache.setdefault(
+                ("compressed_variables", self._yx_grid_key), []
             ).append(self.name)
 
         # --------------------------------------------------------
