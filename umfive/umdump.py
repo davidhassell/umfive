@@ -9,13 +9,12 @@ def main(argv=None):
 
     match argv:
         case []:
-            print("""An `ncdump -h` view of a UK Met Office PP or fields
-                  file dataset.
-
-                  Usage: umdump [<name of a PP or fields file dataset>]
-
-                  """
-                     )
+            print(
+                "An ncdump-like view of a UK Met Office PP, fields "
+                "file, or dump dataset."
+                "\n\n"
+                "Usage: umdump [<name of dataset>]"
+            )
             return 0
 
         case [filename]:
@@ -29,7 +28,10 @@ def main(argv=None):
                 return 2
 
             try:
-                x = xnetcdf.Dataset(filename, backend="umfive")
+                import umfive
+
+                u = umfive.File(filename)
+                x = xnetcdf.Dataset(u, backend="umfive")
                 x.ncdump()
             except Exception as error:
                 print(

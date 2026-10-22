@@ -2652,6 +2652,7 @@ class DataVariableMetadata:
 
         vtimes = tuple(self.time_since_vtime(rec) for rec in t_recs)
         dtimes = tuple(self.time_since_dtime(rec) for rec in t_recs)
+
         key = (
             "time_coordinate",
             self._refunits,
@@ -2667,7 +2668,8 @@ class DataVariableMetadata:
             dtimes = np.array(dtimes, dtype=float)
 
             if np.isnan(vtimes.sum()) or np.isnan(dtimes.sum()):
-                return  # ppp
+                # Non-sensible times (such as LBDTIME=(0,0,0,0,0))
+                return
 
             IB = self._lbtim_ib
 
@@ -2900,6 +2902,7 @@ class DataVariableMetadata:
         # last sample, with the others evenly between.
         rec = self.chunk_records[0]
         vtime = self.time_since_vtime(rec)
+        print(22222)
         dtime = self.time_since_dtime(rec)
 
         size = np.float64(self._lbuser3 - 1.0)
@@ -2991,17 +2994,21 @@ class DataVariableMetadata:
         key = ("time_since", LBDTIME, refunits, calendar)
         time = _cache_date2num.get(key)
         if time is None:
-            import cftime
+            if set(LBDTIME) == {0}:
+                # Non-sensible time
+                time = np.nan
+            else:
+                import cftime
 
-            # It is important to use the same time_units as vtime
-            try:
-                time = cftime.date2num(
-                    cftime.datetime(*LBDTIME, calendar=calendar),
-                    refunits,
-                    calendar,
-                )
-            except ValueError:
-                time = np.nan  # ppp
+                # It is important to use the same time_units as vtime
+                try:
+                    time = cftime.date2num(
+                        cftime.datetime(*LBDTIME, calendar=calendar),
+                        refunits,
+                        calendar,
+                    )
+                except ValueError:
+                    time = np.nan
 
             _cache_date2num[key] = time
 
@@ -3029,17 +3036,21 @@ class DataVariableMetadata:
 
         time = _cache_date2num.get(key)
         if time is None:
-            import cftime
+            if set(LBVTIME) == {0}:
+                # Non-sensible time
+                time = np.nan
+            else:
+                import cftime
 
-            # It is important to use the same time_units as dtime
-            try:
-                time = cftime.date2num(
-                    cftime.datetime(*LBVTIME, calendar=calendar),
-                    refunits,
-                    calendar,
-                )
-            except ValueError:
-                time = np.nan  # ppp
+                # It is important to use the same time_units as dtime
+                try:
+                    time = cftime.date2num(
+                        cftime.datetime(*LBVTIME, calendar=calendar),
+                        refunits,
+                        calendar,
+                    )
+                except ValueError:
+                    time = np.nan
 
             _cache_date2num[key] = time
 
