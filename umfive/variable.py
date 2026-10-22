@@ -1236,15 +1236,15 @@ class DataVariable(_Mixin):
 
         :Parameters:
 
-            display: `bool`, optional
-                If False then return the description as a string. By
-                default the description is printed.
-
             n: `int` or `str`, optional
                 Which lookup header to display. The first lookup is
                 identified by ``0``, which is the default. Negative
                 indices are allowed (such as ``-1``). The special
                 value of ``'all'`` displays all of the lookup headers.
+
+            display: `bool`, optional
+                If False then return the description as a string. By
+                default the description is printed.
 
         :Returns:
 
@@ -1288,10 +1288,33 @@ class DataVariable(_Mixin):
 
         print(out)
 
-    def lookup_header_items(self, display=True):
+    def lookup_header_items(self, items="all", display=True):
         """Display the values for each item from all lookup headers.
 
         :Parameters:
+
+            items: (sequence of) `str`, optional
+                Specify which items to display. Valid items are (case
+                insenstive): ``'LBYR'``, ``'LBMON'``, ``'LBDAT'``,
+                ``'LBHR'``, ``'LBMIN'``, ``'LBDAY'``, ``'LBYRD'``,
+                ``'LBMOND'``, ``'LBDATD'``, ``'LBHRD'``, ``'LBMIND'``,
+                ``'LBDAYD'``, ``'LBTIM'``, ``'LBFT'``, ``'LBLREC'``,
+                ``'LBCODE'``, ``'LBHEM'``, ``'LBROW'``, ``'LBNPT'``,
+                ``'LBEXT'``, ``'LBPACK'``, ``'LBREL'``, ``'LBFC'``,
+                ``'LBCFC'``, ``'LBPROC'``, ``'LBVC'``, ``'LBRVC'``,
+                ``'LBEXP'``, ``'LBEGIN'``, ``'LBNREC'``, ``'LBPROJ'``,
+                ``'LBTYP'``, ``'LBLEV'``, ``'LBRSVD1'``,
+                ``'LBRSVD2'``, ``'LBRSVD3'``, ``'LBRSVD4'``,
+                ``'LBSRCE'``, ``'LBUSER1'``, ``'LBUSER2'``,
+                ``'LBUSER3'``, ``'LBUSER4'``, ``'LBUSER5'``,
+                ``'LBUSER6'``, ``'LBUSER7'``, ``'BRSVD1'``,
+                ``'BRSVD2'``, ``'BRSVD3'``, ``'BRSVD4'``,
+                ``'BDATUM'``, ``'BACC'``, ``'BLEV'``, ``'BRLEV'``,
+                ``'BHLEV'``, ``'BHRLEV'``, ``'BPLAT'``, ``'BPLON'``,
+                ``'BGOR'``, ``'BZY'``, ``'BDY'``, ``'BZX'``,
+                ``'BDX'``, ``'BMDI'``, ``'BMKS'``. By default the
+                specal value ``'all'`` displays all 64 items, in the
+                order given here.
 
             display: `bool`, optional
                 If False then return the description as a list. By
@@ -1306,25 +1329,36 @@ class DataVariable(_Mixin):
                 list.
 
         """
-        from .constants import N_INT_HDR, N_REAL_HDR, _header_names
+        from .constants import N_INT_HDR, _header_names
 
         out = []
 
-        for i in range(N_INT_HDR):
-            out.append(
-                (
-                    f"{_header_names[i]}",
-                    [int(rec.int_hdr[i]) for rec in self.chunk_records],
-                )
-            )
+        if items == "all":
+            items = _header_names
+        elif isinstance(items, str):
+            items = (items,)
 
-        for i in range(N_REAL_HDR):
-            out.append(
-                (
-                    f"{_header_names[i + N_INT_HDR]}",
-                    [float(rec.real_hdr[i]) for rec in self.chunk_records],
+        for item in items:
+            item = item.upper()
+            if item not in _header_names:
+                raise ValueError()
+
+            i = _header_names.index(item)
+            if i < N_INT_HDR:
+                out.append(
+                    (
+                        f"{item}",
+                        [int(rec.int_hdr[i]) for rec in self.chunk_records],
+                    )
                 )
-            )
+            else:
+                i -= N_INT_HDR
+                out.append(
+                    (
+                        f"{item}",
+                        [float(rec.real_hdr[i]) for rec in self.chunk_records],
+                    )
+                )
 
         if not display:
             return out

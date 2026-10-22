@@ -62,6 +62,7 @@ a single data variable with 9 supporting metadata variables.
     'coordinates': 'time air_pressure grid_latitude grid_longitude',
     'grid_mapping': 'rotated_latitude_longitude',
     'lbcode': '101',
+    'lbpack': '0',
     'lbproc': '128',
     'lbtim': '121',
     'lbvc': '8',

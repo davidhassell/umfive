@@ -47,10 +47,24 @@ def test_DataVariable_lookup_header_items():
     assert isinstance(items, list)
     # 45 int + 19 real = 64 items
     assert len(items) == 64
+    assert items[0][0] == "LBYR"
+    assert items[0][1] == [1979] * 15
 
-    # Check a specific known item (LBYR is index 0)
-    lbyr_item = next(item for item in items if item[0] == "LBYR")
-    assert lbyr_item[1] == [1979] * 15
+    for item in ("LBYRD", "lbyrd", ["LBYRD"]):
+        items = v.lookup_header_items(item, display=False)
+        assert isinstance(items, list)
+        assert len(items) == 1
+        assert items[0][0] == "LBYRD"
+        assert items[0][1] == [1979] * 15
+
+    for item in ("LBYRD", "lbyrd", ["LBYRD"]):
+        items = v.lookup_header_items(["LBMON", "lbyr"], display=False)
+        assert isinstance(items, list)
+        assert len(items) == 2
+        assert items[0][0] == "LBMON"
+        assert items[0][1] == [5] * 15
+        assert items[1][0] == "LBYR"
+        assert items[1][1] == [1979] * 15
 
     # Test display=True (stdout)
     buf = StringIO()
