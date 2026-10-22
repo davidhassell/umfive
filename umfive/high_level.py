@@ -2994,7 +2994,8 @@ class DataVariableMetadata:
         key = ("time_since", LBDTIME, refunits, calendar)
         time = _cache_date2num.get(key)
         if time is None:
-            if set(LBDTIME) == {0}:
+            unique_value = set(LBDTIME)
+            if unique_value in ({0}, {-32768}):
                 # Non-sensible time
                 time = np.nan
             else:
@@ -3036,7 +3037,8 @@ class DataVariableMetadata:
 
         time = _cache_date2num.get(key)
         if time is None:
-            if set(LBVTIME) == {0}:
+            unique_value = set(LBVTIME)
+            if unique_value in ({0}, {-32768}):
                 # Non-sensible time
                 time = np.nan
             else:
@@ -3044,6 +3046,7 @@ class DataVariableMetadata:
 
                 # It is important to use the same time_units as dtime
                 try:
+                    print(LBVTIME, calendar, refunits)
                     time = cftime.date2num(
                         cftime.datetime(*LBVTIME, calendar=calendar),
                         refunits,
