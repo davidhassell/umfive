@@ -2902,7 +2902,6 @@ class DataVariableMetadata:
         # last sample, with the others evenly between.
         rec = self.chunk_records[0]
         vtime = self.time_since_vtime(rec)
-        print(22222)
         dtime = self.time_since_dtime(rec)
 
         size = np.float64(self._lbuser3 - 1.0)
@@ -3046,7 +3045,6 @@ class DataVariableMetadata:
 
                 # It is important to use the same time_units as dtime
                 try:
-                    print(LBVTIME, calendar, refunits)
                     time = cftime.date2num(
                         cftime.datetime(*LBVTIME, calendar=calendar),
                         refunits,
