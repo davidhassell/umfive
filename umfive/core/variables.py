@@ -552,6 +552,7 @@ def build_data_variable_index(records, reader, parallelism):
                 _has_z_axis,
             ):
                 def _load(thread_count=0, cat_range_allowed=True, mask=None):
+                    LBPACK = group_recs[0].int_hdr[INDEX_LBPACK]
                     if mask is not None:
                         # A mask has been provided, so we assume that
                         # the field is run length encoded.
@@ -570,7 +571,6 @@ def build_data_variable_index(records, reader, parallelism):
                         # No mask has been provided, implying that the
                         # field is not run length encoded.
                         mask = None
-                        LBPACK = group_recs[0].int_hdr[LBPACK]
                         if LBPACK in (120, 220):
                             raise ValueError(
                                 "Can't get run length encoded data "

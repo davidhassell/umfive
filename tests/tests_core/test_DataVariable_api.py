@@ -23,6 +23,7 @@ def test_DataVariable_attributes():
         "lbproc": "128",
         "lbtim": "121",
         "lbvc": "8",
+        "lbpack": "0",
         "long_name": "U COMPNT OF WIND ON PRESSURE LEVELS",
         "missing_value": np.float32(-1.0737418e09),
         "runid": "aaacf",

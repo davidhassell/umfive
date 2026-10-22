@@ -28,7 +28,6 @@ from .constants import (
     INDEX_LBFC,
     INDEX_LBHEM,
     INDEX_LBLEV,
-    INDEX_LBLREC,
     INDEX_LBMIN,
     INDEX_LBMIND,
     INDEX_LBNPT,
@@ -1106,7 +1105,6 @@ class DataVariableMetadata:
         LBYR = int_hdr[INDEX_LBYR]
         LBNPT = int_hdr[INDEX_LBNPT]
         LBROW = int_hdr[INDEX_LBROW]
-        LBLREC = int_hdr[INDEX_LBLREC]
         LBPACK = int_hdr[INDEX_LBPACK]
         LBTIM = int_hdr[INDEX_LBTIM]
         LBCODE = int_hdr[INDEX_LBCODE]
@@ -1310,6 +1308,7 @@ class DataVariableMetadata:
         cf_properties["lbtim"] = str(LBTIM)
         cf_properties["lbcode"] = str(LBCODE)
         cf_properties["lbvc"] = str(LBVC)
+        cf_properties["lbpack"] = str(LBPACK)
         cf_properties["stash_code"] = str(stash)
         cf_properties["submodel"] = str(submodel)
 

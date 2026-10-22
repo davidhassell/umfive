@@ -9,6 +9,7 @@ tests/data/hybrid_height.pp: <umfive.File: 1 data variable, 13 metadata variable
                 cell_methods: 'time: point'
                 coordinates: 'time atmosphere_hybrid_height_coordinate model_level_number latitude longitude'
                 lbcode: '1'
+                lbpack: '0'
                 lbproc: '0'
                 lbtim: '2'
                 lbvc: '65'
