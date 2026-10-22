@@ -443,28 +443,6 @@ class _Mixin:
         return tuple(dim[0] for dim in DIMENSION_LIST)
 
     @property
-    def first_lookup_header(self):
-        """Display the lookup header foor the first chunk record."""
-        print(self.chunk_records[0])
-
-    @property
-    def lookup_header_items(self):
-        """Display the values for each item from all lookup headers."""
-        from .constants import _header_names
-
-        for i in range(45):
-            print(
-                f"{_header_names[i]}:",
-                [int(rec.int_hdr[i]) for rec in self.chunk_records],
-            )
-
-        for i in range(19):
-            print(
-                f"{_header_names[i + 44]}:",
-                [float(rec.real_hdr[i]) for rec in self.chunk_records],
-            )
-
-    @property
     def maxshape(self):
         """Maximum shape of the data.
 
@@ -1252,6 +1230,108 @@ class DataVariable(_Mixin):
 
         """
         return self.id.iter_chunks(args)
+
+    def lookup_header(self, n=0, display=True):
+        """Display lookup headers.
+
+        :Parameters:
+
+            display: `bool`, optional
+                If False then return the description as a string. By
+                default the description is printed.
+
+            n: `int` or `str`, optional
+                Which lookup header to display. The first lookup is
+                identified by ``0``, which is the default. Negative
+                indices are allowed (such as ``-1``). The special
+                value of ``'all'`` displays all of the lookup headers.
+
+        :Returns:
+
+            `None` or `str`
+                The description. If *display* is True then the
+                description is printed and `None` is
+                returned. Otherwise the description is returned as a
+                string.
+
+        """
+        n_recs = len(self.chunk_records)
+
+        if n == "all":
+            out = [
+                self.lookup_header(n=i, display=False) for i in range(n_recs)
+            ]
+            out = "\n\n".join(out)
+
+            if not display:
+                return out
+
+            print(out)
+            return
+
+        # Still here? Then deal with an integer n
+        if not -n_recs <= n < n_recs:
+            raise ValueError(
+                f"{self.name} has only {n_recs} lookup headers, so an integer "
+                f"must be -{n_recs} <= n < {n_recs}. Got: n={n}"
+            )
+
+        if n < 0:
+            n = n + n_recs
+
+        title = f"{self.name}: Lookup header {n + 1} of {n_recs}"
+        out = f"{title}\n{'-' * len(title)}"
+        out += f"\n{self.chunk_records[n]}"
+
+        if not display:
+            return out
+
+        print(out)
+
+    def lookup_header_items(self, display=True):
+        """Display the values for each item from all lookup headers.
+
+        :Parameters:
+
+            display: `bool`, optional
+                If False then return the description as a list. By
+                default the description is printed.
+
+        :Returns:
+
+            `None` or `list`
+                The description. If *display* is True then the
+                description is printed and `None` is
+                returned. Otherwise the description is returned as a
+                list.
+
+        """
+        from .constants import N_INT_HDR, N_REAL_HDR, _header_names
+
+        out = []
+
+        for i in range(N_INT_HDR):
+            out.append(
+                (
+                    f"{_header_names[i]}",
+                    [int(rec.int_hdr[i]) for rec in self.chunk_records],
+                )
+            )
+
+        for i in range(N_REAL_HDR):
+            out.append(
+                (
+                    f"{_header_names[i + N_INT_HDR]}",
+                    [float(rec.real_hdr[i]) for rec in self.chunk_records],
+                )
+            )
+
+        if not display:
+            return out
+
+        out = [f"{item}: {values}" for item, values in out]
+        out = "\n".join(out)
+        print(out)
 
     def read_direct(self, array, source_sel=None, dest_sel=None):
         """Read from the dataset directly into a `numpy` array.

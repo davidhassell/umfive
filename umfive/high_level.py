@@ -456,9 +456,14 @@ class File(Mapping):
             if display_lookup_headers:
                 # Print lookup headers for this data variable
                 nhdr = len(data_variable.chunk_records)
-                s = "s" if nhdr > 1 else ""
-                n = "1/" if display_lookup_headers == "first" else ""
-                title = f"{name}: {n}{nhdr} lookup header{s}"
+                if display_lookup_headers == "first":
+                    n = "1"
+                    s = ""
+                else:
+                    n = f"1-{nhdr}"
+                    s = "s"
+
+                title = f"{name}: Lookup header{s} {n} of {nhdr}"
                 title += f"\n{'-' * len(title)}"
 
                 lookups = "\n\n".join(
