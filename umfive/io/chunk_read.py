@@ -83,13 +83,24 @@ class ChunkReadMixin:
             chunk_shape: `tuple` of `int`
                 The chunks shape.
 
+            mask: `numpy.ndarray` or `None`, optional
+                When set to a numpy array, it must contain the
+                land-sea mask for the field that is required for
+                decompressing run length encoded fields. It must have
+                shape (LBROW, LBNPT) and contain Booleans such that
+                True indicates a land grid cell and False indicates a
+                sea grid cell. The default of `None` indicates that no
+                land/sea mask required, or else one is required but it
+                could not be found.
+
+                .. versionadded:: 0.5.0
+
         :Returns:
 
             `numpy.ndarray`
                 The array with the same shape as the chunk shape.
 
         """
-        #        return decode_record_array_from_raw(raw, rec).reshape(chunk_shape)
         out = decode_record_array_from_raw(raw, rec, mask=mask)
         return out.reshape(chunk_shape)
 
@@ -122,7 +133,19 @@ class ChunkReadMixin:
 
             required:
 
-            out: `nump.ndarray`
+            out: `numpy.ndarray`
+
+            mask: `numpy.ndarray` or `None`, optional
+                When set to a numpy array, it must contain the
+                land-sea mask for the field that is required for
+                decompressing run length encoded fields. It must have
+                shape (LBROW, LBNPT) and contain Booleans such that
+                True indicates a land grid cell and False indicates a
+                sea grid cell. The default of `None` indicates that no
+                land/sea mask required, or else one is required but it
+                could not be found.
+
+                .. versionadded:: 0.5.0
 
         :Returns:
 
@@ -259,7 +282,8 @@ class ChunkReadMixin:
             `None`
 
         """
-        file_obj = self._variable.file
+        variable = self._variable
+        file_obj = variable.file
         reader = file_obj._reader
         thread_count = int(getattr(file_obj, "_thread_count", 0) or 0)
         cat_range_allowed = bool(getattr(file_obj, "_cat_range_allowed", True))
@@ -275,7 +299,8 @@ class ChunkReadMixin:
         if not required:
             return
 
-        mask = self._variable.data_loader_options.get("mask")
+        # Get the mask needed for decompression (if there is one)
+        mask = variable.data_loader_options.get("mask")
 
         if thread_count:
             # if cat_range_allowed and isinstance(reader, FsspecReader):

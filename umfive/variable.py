@@ -197,11 +197,41 @@ class DataVariableID(ChunkReadMixin):
 
     def get_data(self, args=()):
         """Called by `DataVariable.__getitem__`."""
+        variable = self._variable
+
+        # Get the mask needed for decompression (if there is one)
+        mask = variable.data_loader_options.get("mask")
+        if mask is not None and not isinstance(mask, np.ndarray):
+            # The mask is itself a `DataVariable` instance, so convert
+            # to a 2-d Boolean numpy array.
+            mask = mask[...]
+
+            # Removing any leading size 1 T and Z dimensions
+            shape = mask.shape
+            if mask.size == shape[-2] * shape[-1]:
+                mask = mask.reshape(shape[-2:])
+
+            if mask.ndim > 2:
+                rec = variable.chunk_records[0]
+                LBPACK = rec.int_hdr[INDEX_LBPACK]
+                raise ValueError(
+                    "Can't get run length encoded data "
+                    f"(LBPACK={int(LBPACK)}) when the land/sea mask is "
+                    f"not logically 2-d. Mask shape is {mask.shape}."
+                    f"Lookup header:\n{rec}"
+                )
+
+            # Convert the mask to a Boolean array that is True for
+            # land grid cells, False for sea grid cells.
+            mask = mask != 0
+
+            # Store the Boolean mask within the data variable
+            variable.data_loader_options["mask"] = mask
+
         if self.__chunk_init_check():
             return self._get_selection_via_chunks(args)
 
         # Fallback for variables with data_loader but no chunk records
-        variable = self._variable
         if variable.data_loader is not None:
             data = variable.data_loader(**variable.data_loader_options)
             if data is None:
@@ -413,26 +443,26 @@ class _Mixin:
         return tuple(dim[0] for dim in DIMENSION_LIST)
 
     @property
-    def lookup_header_items(self):
-        """TODO."""
-        from .constants import _header_names
-
-        for x in range(45):
-            print(
-                f"{_header_names[x]}:",
-                [int(rec.int_hdr[x]) for rec in self.chunk_records],
-            )
-
-        for x in range(19):
-            print(
-                f"{_header_names[x+44]}:",
-                [float(rec.real_hdr[x]) for rec in self.chunk_records],
-            )
+    def first_lookup_header(self):
+        """Display the lookup header foor the first chunk record."""
+        print(self.chunk_records[0])
 
     @property
-    def first_lookup_header(self):
-        """TODO."""
-        print(self.chunk_records[0])
+    def lookup_header_items(self):
+        """Display the values for each item from all lookup headers."""
+        from .constants import _header_names
+
+        for i in range(45):
+            print(
+                f"{_header_names[i]}:",
+                [int(rec.int_hdr[i]) for rec in self.chunk_records],
+            )
+
+        for i in range(19):
+            print(
+                f"{_header_names[i + 44]}:",
+                [float(rec.real_hdr[i]) for rec in self.chunk_records],
+            )
 
     @property
     def maxshape(self):

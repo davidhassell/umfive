@@ -1107,6 +1107,7 @@ class DataVariableMetadata:
         LBCODE = int_hdr[INDEX_LBCODE]
         LBPROC = int_hdr[INDEX_LBPROC]
         LBVC = int_hdr[INDEX_LBVC]
+        LBLEV = int_hdr[INDEX_LBLEV]
         stash = int_hdr[INDEX_LBUSER4]
         LBUSER5 = int_hdr[INDEX_LBUSER5]
         submodel = int_hdr[INDEX_LBUSER7]
@@ -1123,13 +1124,13 @@ class DataVariableMetadata:
         self._bplat = BPLAT
         self._bplon = BPLON
 
-        #        if not LBROW or not LBNPT:
-        #            logger.warn(
-        #                f"WARNING: Skipping STASH code {stash} with LBROW={LBROW}, "
-        #                f"LBNPT={LBNPT}, LBPACK={LBPACK} "
-        #                "(possibly runlength encoded)"
-        #            )  # pragma: no cover
-        #            return
+        if LBLEV == 7777:
+            logger.warn(
+                f"WARNING: Skipping STASH code {stash} with "
+                f"LBLEV={LBLEV} (multi-level field). "
+                f"Lookup header:\n{rec0}"
+            )  # pragma: no cover
+            return
 
         if stash:
             section, item = divmod(stash, 1000)
@@ -1330,7 +1331,6 @@ class DataVariableMetadata:
             "yx_grid",
             LBROW,
             LBNPT,
-            LBLREC,
             int_hdr[INDEX_LBHEM],
             LBCODE,
             BPLAT,
@@ -1342,10 +1342,13 @@ class DataVariableMetadata:
             real_hdr[INDEX_BZY],
         )
 
-        # TODO
+        # Store a definition of the data variable's Y-X grid that
+        # omits LBROW and LBNPT. This is for compressed fields for
+        # which these both of these items are always 0, for any sized
+        # grid.
         self._yx_grid_compressed_key = (
             "yx_grid_compressed",
-        ) + self._yx_grid_key[4:]
+        ) + self._yx_grid_key[3:]
 
         # Store an orography variable name (this is used to
         # potentially add an "orog" formula term to vertical
@@ -1355,7 +1358,9 @@ class DataVariableMetadata:
                 ("orography_variables", self._yx_grid_key), []
             ).append(self.name)
 
-        # Store a fixed atmosphere mask variable name
+        # Store the name of a fixed atmosphere mask data
+        # variable. LBPROC=0 excludes, e.g. time-mean masks that may
+        # also be in the dataset.
         elif stash == 30 and submodel == 1 and LBPROC == 0:
             self._cache.setdefault(
                 (
@@ -1365,7 +1370,7 @@ class DataVariableMetadata:
                 [],
             ).append(self.name)
 
-        # Store compressed atmopshere variables names
+        # Store the name of a compressed atmopshere data variable
         if submodel == 1 and LBPACK in (120, 220):
             self._cache.setdefault(
                 (
@@ -1420,7 +1425,6 @@ class DataVariableMetadata:
             #   2  Depth
             #   9  Hybrid pressure
             #  65  Hybrid height
-            LBLEV = int_hdr[INDEX_LBLEV]
             if LBVC in (2, 9, 65) or LBLEV in (7777, 8888):  # CHECK!
                 self._lblev = LBLEV
                 self.model_level_number_coordinate(aux=dim_ncvar is not None)
