@@ -7,14 +7,20 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
+    info = (
+        "An ncdump-like view of a UK Met Office PP, fields file "
+        "or dump dataset."
+        "\n\n"
+        "Usage: umdump [--help] [<dataset name>]"
+    )
+
     match argv:
         case []:
-            print(
-                "An ncdump-like view of a UK Met Office PP, fields "
-                "file, or dump dataset."
-                "\n\n"
-                "Usage: umdump [<name of dataset>]"
-            )
+            print(info)
+            return 0
+
+        case ["--help"]:
+            print(info)
             return 0
 
         case [filename]:
@@ -45,7 +51,7 @@ def main(argv=None):
         case _:
             args = " ".join([f"{arg}" for arg in argv])
             print(f"Invalid arguments: {args}")
-            return 1
+            return 2
 
 
 if __name__ == "__main__":

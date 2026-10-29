@@ -11,6 +11,8 @@ Version 0.5.0
   (https://github.com/NCAS-CMS/umfive/issues/57)
 * Fix multiple issues when reading UM dumps
   (https://github.com/NCAS-CMS/umfive/issues/57)
+* Include ``--help`` option to `umdump`
+  (https://github.com/NCAS-CMS/umfive/issues/50)
 
 Version 0.4.0
 -------------
