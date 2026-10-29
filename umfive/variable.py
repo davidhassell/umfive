@@ -1322,16 +1322,16 @@ class DataVariable(_Mixin):
 
         :Returns:
 
-            `None` or `list`
+            `None` or `dict`
                 The description. If *display* is True then the
                 description is printed and `None` is
                 returned. Otherwise the description is returned as a
-                list.
+                dictionary keyed by item names.
 
         """
         from .constants import N_INT_HDR, _header_names
 
-        out = []
+        out = {}
 
         if items == "all":
             items = _header_names
@@ -1345,25 +1345,15 @@ class DataVariable(_Mixin):
 
             i = _header_names.index(item)
             if i < N_INT_HDR:
-                out.append(
-                    (
-                        f"{item}",
-                        [int(rec.int_hdr[i]) for rec in self.chunk_records],
-                    )
-                )
+                out[item] = [int(rec.int_hdr[i]) for rec in self.chunk_records]
             else:
-                i -= N_INT_HDR
-                out.append(
-                    (
-                        f"{item}",
-                        [float(rec.real_hdr[i]) for rec in self.chunk_records],
-                    )
-                )
+                i -= N_INT_HDR                
+                out[item] = [float(rec.real_hdr[i]) for rec in self.chunk_records]
 
         if not display:
             return out
 
-        out = [f"{item}: {values}" for item, values in out]
+        out = [f"{item}: {values}" for item, values in out.items()]
         out = "\n".join(out)
         print(out)
 

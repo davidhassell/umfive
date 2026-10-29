@@ -3,8 +3,8 @@
 CF-netCDF structure
 ===================
 
-The contents of a PP or UM fields file dataset are mapped to a
-`umfive.File` object that follows the `CF conventions
+The contents of a PP, UM fields file, or UM dump dataset are mapped to
+a `umfive.File` object that follows the `CF conventions
 <https://cfconventions.org/>`_ in that it contains data variables
 (`umfive.DataVariable` objects); and metadata variables comprising
 dimensions and coordinate variables (`umfive.DimensionScale` objects),
@@ -92,7 +92,8 @@ Attribute            Description
 Dataset
 -------
 
-A PP or fields file dataset is mapped to a `umfive.File` object.
+A PP, UM fields file, or UM dump dataset is mapped to a `umfive.File`
+object.
 
 Dataset definition
 ^^^^^^^^^^^^^^^^^^
