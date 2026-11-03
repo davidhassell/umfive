@@ -7,20 +7,20 @@ from collections import defaultdict
 # Ordered list of regex patterns and their corresponding units.
 # The first match found will be used. Add new safe cases here.
 UNIT_PATTERNS = [
-    (re.compile(r" KG M**-2 S**-1 *$"), "kg m-2 s-1")
-    (re.compile(r" KG M-1 S-2 *$"), "kg m-1 s-2")
-    (re.compile(r" KG/KG M/S *$"), "m s-1")
-    (re.compile(r" M\*\*-2 S\*\*-1 *$"), "m-2 s-1")
-    (re.compile(r" KG M-3 *$"), "kg m-3")
-    (re.compile(r" KG M-2 *$"), "kg m-2")
-    (re.compile(r" KG M/S *$"), "kg m s-1")
-    (re.compile(r" M S\*\*-1 *$"), "m s-1")
-    (re.compile(r" M S-2 *$"), "m s-2")
-    (re.compile(r" W M-2 *$"), "W m-2")
+    (re.compile(r" KG M\*\*-2 S\*\*-1 *$"), "kg m-2 s-1"),
+    (re.compile(r" KG M-1 S-2 *$"), "kg m-1 s-2"),
+    (re.compile(r" KG/KG M/S *$"), "m s-1"),
+    (re.compile(r" M\*\*-2 S\*\*-1 *$"), "m-2 s-1"),
+    (re.compile(r" KG M-3 *$"), "kg m-3"),
+    (re.compile(r" KG M-2 *$"), "kg m-2"),
+    (re.compile(r" KG M/S *$"), "kg m s-1"),
+    (re.compile(r" M S\*\*-1 *$"), "m s-1"),
+    (re.compile(r" M S-2 *$"), "m s-2"),
+    (re.compile(r" W M-2 *$"), "W m-2"),
     (re.compile(r" KG/M3 *$"), "kg m-3"), 
-    (re.compile(r" KG/KG/S *$"), "s-1")
-    (re.compile(r" KG/M2/SEC *$"), "kg m-2 s-1")
-    (re.compile(r" KG/M2/S *$"), "kg m-2 s-1")
+    (re.compile(r" KG/KG/S *$"), "s-1"),
+    (re.compile(r" KG/M2/SEC *$"), "kg m-2 s-1"),
+    (re.compile(r" KG/M2/S *$"), "kg m-2 s-1"),
     (re.compile(r" KG/M2 *$"), "kg m-2"), 
     (re.compile(r" KG/S *$"), "kg s-1"), 
     (re.compile(r" K/S *$"), "K s-1"),
@@ -136,6 +136,8 @@ def create_new_entry(model, stash, sm_name, new_v_str, ref_parts=None):
     
     if inferred:
         print(f"Inferred unit: {'!'.join(new_parts)}")
+    elif not unit.strip():
+        print(f"No unit assigned: {'!'.join(new_parts)}")
         
     return new_parts
 
