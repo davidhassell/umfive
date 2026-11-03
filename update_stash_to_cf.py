@@ -251,6 +251,14 @@ def main():
             # Ensure we have exactly 9 columns (0 to 8)
             while len(parts) < 9:
                 parts.append("")
+                
+            # Infer units for old entries if missing
+            if not parts[3].strip():
+                inferred_unit = infer_unit(parts[2])
+                if inferred_unit:
+                    parts[3] = inferred_unit
+                    print(f"Inferred unit for old entry: {'!'.join(parts)}")
+                    
             cf_entries.append(parts)
 
     # Group existing CF entries by (model, stash_code)
