@@ -10,7 +10,7 @@ echo "Starting batch update..."
 for major in {10..14}; do
     # Loop through minor versions 0 to 9
     for minor in {0..9}; do
-        
+
         # Skip versions before 10.3
         if [[ "$major" -eq 10 && "$minor" -lt 3 ]]; then
             continue
@@ -22,8 +22,10 @@ for major in {10..14}; do
 
         # Check if the STASHmaster file exists for this version
         if [[ -f "$stashmaster" ]]; then
+	    echo ""
             echo "Processing version $new_v (Previous: $prev_v)..."
-            
+	    echo ""
+
             python3 update_stash_to_cf.py \
                 --stashmaster "$stashmaster" \
                 --stash-to-cf "$current_file" \
@@ -31,7 +33,7 @@ for major in {10..14}; do
                 --new-version "$new_v" \
                 --output "$output_file" \
                 --skip-version-check
-            
+
             # Update pointers for the next iteration
             current_file="$output_file"
             prev_v="$new_v"
