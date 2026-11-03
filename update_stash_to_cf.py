@@ -7,37 +7,98 @@ from collections import defaultdict
 # Ordered list of regex patterns and their corresponding units.
 # The first match found will be used. Add new safe cases here.
 UNIT_PATTERNS = [
+    # ----------------------------------------------------------------
+    # 2 spaces
+    # ----------------------------------------------------------------
+    # 14 characters
     (re.compile(r" KG M\*\*-2 S\*\*-1 *$"), "kg m-2 s-1"),
+    # 12 characters
+    (re.compile(r" \(kg m-2 s-1\) *$"), "kg m-2 s-1"),
+    # 10 characters
     (re.compile(r" KG M-1 S-2 *$"), "kg m-1 s-2"),
-    (re.compile(r" KG/KG M/S *$"), "m s-1"),
+    # ----------------------------------------------------------------
+    # 1 space
+    # ----------------------------------------------------------------
+    # 11 characters
     (re.compile(r" M\*\*-2 S\*\*-1 *$"), "m-2 s-1"),
+    # 9 characters
+    (re.compile(r" KG/KG M/S *$"), "m s-1"),
+    # 8 characters
+    (re.compile(r" (ug m-3) *$"), "ug m-3"),
+    # 7 characters
+    (re.compile(r" M S\*\*-1 *$"), "m s-1"),   
+    # 6 characters
     (re.compile(r" KG M-3 *$"), "kg m-3"),
     (re.compile(r" KG M-2 *$"), "kg m-2"),
     (re.compile(r" KG M/S *$"), "kg m s-1"),
-    (re.compile(r" M S\*\*-1 *$"), "m s-1"),
+    # 5 characters
     (re.compile(r" M S-2 *$"), "m s-2"),
     (re.compile(r" W M-2 *$"), "W m-2"),
-    (re.compile(r" KG/M3 *$"), "kg m-3"), 
-    (re.compile(r" KG/KG/S *$"), "s-1"),
+    # ----------------------------------------------------------------
+    # 0 spaces
+    # ----------------------------------------------------------------
+    # 9 characters    
+    (re.compile(r"\(cm2/cm3\) *$"), "cm2 cm-3"),
+    (re.compile(r" kgm^2s^-1 *$"), "kg m2 s-1"),
     (re.compile(r" KG/M2/SEC *$"), "kg m-2 s-1"),
+    # 8 characters
+    (re.compile(r"\(J/K\.m2\) *$"), "J K-1 m2"),
+    (re.compile(r"\(kgm^-2\) *$"), "kg m-2"),
+    (re.compile(r"\(kgm^-3\) *$"), "kg m-3"),
+    # 7 characters
+    (re.compile(r"\(kg/kg\) *$"), "kg kg-1"),
+    (re.compile(r"\(kg/m2\) *$"), "kg m-2"),
+    (re.compile(r"\(kg/m3\) *$"), "kg m-3"), 
+    (re.compile(r"\(mol/s\) *$"), "mol s-1"),
+    (re.compile(r" kg/kg/s *$"), "s-1"),
+    (re.compile(r" KG/KG/S *$"), "s-1"),
     (re.compile(r" KG/M2/S *$"), "kg m-2 s-1"),
+    # 6 characters
+    (re.compile(r"\(J/m2\) *$"), "J m-2"),
+    (re.compile(r"\(m/s2\) *$"), "m s-2"),
+    (re.compile(r"\(m^-3\) *$"), "m-3"),
+    (re.compile(r"\(W/m2\) *$"), "W m-2"),
+    (re.compile(r" M2\.S-2 *$"), "m2 s-2"),
+    (re.compile(r" W/M\*\*2 *$"), "W m-2"),
+    # 5 characters
+    (re.compile(r"\(1/s\) *$"), "s-1"),
+    (re.compile(r"\(m-3\) *$"), "m-3"),
+    (re.compile(r"\(m/s\) *$"), "m s-1"),
+    (re.compile(r"\(M/S\) *$"), "m s-1"),
+    (re.compile(r"\(s-1\) *$"), "s-1"),
+    (re.compile(r"\(S-1\) *$"), "s-1"),
+    (re.compile(r" kg/m2 *$"), "kg m-2"), 
+    (re.compile(r" KG/KG *$"), "kg kg-1"),
     (re.compile(r" KG/M2 *$"), "kg m-2"), 
+    (re.compile(r" KG/M3 *$"), "kg m-3"),  
+    (re.compile(r" M2/S2 *$"), "m2 s-2"),
+    (re.compile(r" N/M2 *$"), "Pa"),
+    (re.compile(r" S\*\*-1 *$"), "s-1"),
+    # 4 characters
+    (re.compile(r"\(K2\) *$"), "K"),
+    (re.compile(r"\(Pa\) *$"), "Pa"),
+    (re.compile(r" J/kg *$"), "J kg-1"),
     (re.compile(r" KG/S *$"), "kg s-1"), 
-    (re.compile(r" K/S *$"), "K s-1"),
+    (re.compile(r" M/S2 *$"), "m s-2"),
+    (re.compile(r" PA/S *$"), "Pa s-1"),
+    (re.compile(r" Pa/s *$"), "Pa s-1"),
+    (re.compile(r" W/M2 *$"), "W m-2"),
+    # 3 characters
+    (re.compile(r"\(K\) *$"), "K"),
+    (re.compile(r"\(m\) *$"), "m"),
+    (re.compile(r"\(M\) *$"), "m"),
     (re.compile(r" M/S *$"), "m s-1"),
     (re.compile(r" K/S *$"), "K s-1"),
-    (re.compile(r" \(PA/S\) *$"), "Pa s-1"),
-    (re.compile(r" \(PA/s\) *$"), "Pa s-1"),
-    (re.compile(r" W/M\*\*2 *$"), "W m-2"),
-    (re.compile(r" W/M2 *$"), "W m-2"),
+    (re.compile(r" S-1 *$"), "s-1"),
+    # 2 characters
+    (re.compile(r" mm *$"), "mm"),
+    (re.compile(r" Pa *$"), "Pa"),
+    # 1 character
     (re.compile(r" K *$"), "K"),
-    (re.compile(r" \(K\) *$"), "K"),
     (re.compile(r" M *$"), "m"),
     (re.compile(r" m *$"), "m"),
-    (re.compile(r" S-1 *$"), "s-1"),
-    (re.compile(r" S\*\*-1 *$"), "s-1"),
-    (re.compile(r" \(S-1\) *$"), "s-1"),
 ]
+
 
 def infer_unit(name):
     """
