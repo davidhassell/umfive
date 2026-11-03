@@ -1,7 +1,26 @@
 #!/usr/bin/env python3
 import argparse
 import sys
+import re
 from collections import defaultdict
+
+# Ordered list of regex patterns and their corresponding units.
+# The first match found will be used. Add new safe cases here.
+UNIT_PATTERNS = [
+    (re.compile(r" KG M/S *$"), "kg m s-1"),
+    (re.compile(r" M/S *$"), "m s-1"),
+    (re.compile(r" M *$"), "m"),
+    (re.compile(r" K *$"), "K"),
+]
+
+def infer_unit(name):
+    """
+    Attempt to infer the unit from the end of the STASH name.
+    """
+    for pattern, unit in UNIT_PATTERNS:
+        if pattern.search(name):
+            return unit
+    return ""
 
 def format_version(v):
     """
@@ -55,6 +74,44 @@ def sort_key(parts):
         min_v_float = 0.0
         
     return (model, stash, min_v_float)
+
+def create_new_entry(model, stash, sm_name, new_v_str, ref_parts=None):
+    """
+    Helper to create a new CF entry list, inferring units if necessary.
+    """
+    unit = ""
+    std_name = ""
+    cond = ""
+    coords = ""
+    
+    if ref_parts:
+        unit = ref_parts[3]
+        std_name = ref_parts[6]
+        cond = ref_parts[7]
+        coords = ref_parts[8]
+        
+    inferred = False
+    if not unit.strip():
+        unit = infer_unit(sm_name)
+        if unit:
+            inferred = True
+            
+    new_parts = [
+        str(model),
+        str(stash),
+        sm_name,
+        unit,
+        new_v_str,
+        "",
+        std_name,
+        cond,
+        coords
+    ]
+    
+    if inferred:
+        print(f"Inferred unit: {'!'.join(new_parts)}")
+        
+    return new_parts
 
 def main():
     parser = argparse.ArgumentParser(description="Update STASH_to_CF.txt with new STASHmaster_A")
@@ -122,8 +179,7 @@ def main():
     for (model, stash), sm_name in stashmaster_entries.items():
         if (model, stash) not in cf_dict:
             # Completely new STASH code
-            new_parts = [str(model), str(stash), sm_name, "", new_v_str, "", "", "", ""]
-            new_entries.append(new_parts)
+            new_entries.append(create_new_entry(model, stash, sm_name, new_v_str))
         else:
             active_indices = []
             for idx in cf_dict[(model, stash)]:
@@ -136,10 +192,9 @@ def main():
                 last_parts = cf_entries[last_idx]
                 if last_parts[2].strip() == sm_name.strip():
                     # If the name is the same as the retired one, copy its metadata
-                    new_parts = [str(model), str(stash), sm_name, last_parts[3], new_v_str, "", last_parts[6], last_parts[7], last_parts[8]]
+                    new_entries.append(create_new_entry(model, stash, sm_name, new_v_str, ref_parts=last_parts))
                 else:
-                    new_parts = [str(model), str(stash), sm_name, "", new_v_str, "", "", "", ""]
-                new_entries.append(new_parts)
+                    new_entries.append(create_new_entry(model, stash, sm_name, new_v_str))
                 continue
 
             # Check if the name matches any active entry
@@ -154,18 +209,7 @@ def main():
                 for idx in active_indices:
                     cf_entries[idx][5] = prev_v_str
                     ref_parts = cf_entries[idx]
-                    new_parts = [
-                        str(model),
-                        str(stash),
-                        sm_name,
-                        ref_parts[3], # units
-                        new_v_str,    # min_v
-                        "",           # max_v
-                        ref_parts[6], # std_name
-                        ref_parts[7], # cond
-                        ref_parts[8]  # coords
-                    ]
-                    new_entries.append(new_parts)
+                    new_entries.append(create_new_entry(model, stash, sm_name, new_v_str, ref_parts=ref_parts))
 
     # Combine and sort
     all_entries = cf_entries + new_entries
