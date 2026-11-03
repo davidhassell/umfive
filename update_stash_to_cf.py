@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import sys
 from collections import defaultdict
 
 def format_version(v):
@@ -13,6 +14,28 @@ def format_version(v):
         return v
     except Exception:
         return v
+
+def check_version_increment(prev_v, new_v):
+    """
+    Checks if new_v is exactly one minor version greater than prev_v.
+    E.g., 10.2 -> 10.3, 10.9 -> 11.0
+    """
+    try:
+        p_major, p_minor = map(int, prev_v.split('.'))
+        n_major, n_minor = map(int, new_v.split('.'))
+        
+        if p_minor == 9:
+            expected_major = p_major + 1
+            expected_minor = 0
+        else:
+            expected_major = p_major
+            expected_minor = p_minor + 1
+            
+        if n_major != expected_major or n_minor != expected_minor:
+            return False, f"Expected {expected_major}.{expected_minor}, got {new_v}"
+        return True, ""
+    except ValueError:
+        return False, "Versions must be in the format X.Y (e.g., 10.2)"
 
 def sort_key(parts):
     """
@@ -40,8 +63,16 @@ def main():
     parser.add_argument('--prev-version', required=True, help="Previous UM version (e.g., 10.2)")
     parser.add_argument('--new-version', required=True, help="New UM version (e.g., 10.3)")
     parser.add_argument('--output', required=True, help="Path to output updated STASH_to_CF.txt")
+    parser.add_argument('--skip-version-check', action='store_true', help="Disable the check that the new version is exactly one minor version greater than the previous version")
 
     args = parser.parse_args()
+
+    if not args.skip_version_check:
+        is_valid, msg = check_version_increment(args.prev_version, args.new_version)
+        if not is_valid:
+            print(f"Error: Version increment check failed. {msg}")
+            print("Use --skip-version-check to bypass this validation.")
+            sys.exit(1)
 
     prev_v_str = format_version(args.prev_version)
     new_v_str = format_version(args.new_version)
